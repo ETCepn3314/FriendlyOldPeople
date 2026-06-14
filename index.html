@@ -26,6 +26,10 @@
     --in-bg: rgba(46,204,113,.13);
     --out: #ff5c6c;
     --out-bg: rgba(255,92,108,.12);
+    --thru: #3aa0ff;
+    --thru-bg: rgba(58,160,255,.14);
+    --warn: #ffb347;
+    --warn-bg: rgba(255,179,71,.14);
     --champ: #ffd23f;
     --champ-bg: rgba(255,210,63,.15);
   }
@@ -75,6 +79,8 @@
   .progress .track { height: 7px; background: var(--bg2); border:1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .progress .fill { height: 100%; width: 0%; background: linear-gradient(90deg,#3aa0ff,#2ecc71); transition: width .6s ease; }
   .progress .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .phasechip { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase;
+    padding:2px 8px; border-radius:999px; background:var(--thru-bg); color:var(--thru); margin-right:6px; }
 
   /* champion banner */
   .winner {
@@ -105,14 +111,19 @@
   .pill.dead  { color: var(--out); background: var(--out-bg); }
   .pill.champ { color: #1c1500; background: var(--champ); }
 
-  .teams { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+  .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 11px; }
   .team {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
     font-size: 13.5px; font-weight: 600;
-    padding: 6px 11px; border-radius: 10px; border: 1px solid var(--line);
+    padding: 7px 11px; border-radius: 10px; border: 1px solid var(--line);
+    min-width: 0;
   }
+  .team .tn { display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .team .det { font-size: 11px; font-weight: 600; opacity: .85; }
   .team.in    { color: #d7ffe7; background: var(--in-bg);  border-color: rgba(46,204,113,.4); }
-  .team.out   { color: #ffd9de; background: var(--out-bg); border-color: rgba(255,92,108,.4); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .team.thru  { color: #cfe6ff; background: var(--thru-bg); border-color: rgba(58,160,255,.45); }
+  .team.out   { color: #ffd9de; background: var(--out-bg); border-color: rgba(255,92,108,.4); }
+  .team.out .tn { text-decoration: line-through; text-decoration-thickness: 1.5px; }
   .team.champ { color: #1c1500; background: var(--champ); border-color: var(--champ); }
   .team .ico { font-size: 12px; }
 
@@ -127,8 +138,33 @@
 
   /* view toggle */
   .toggle { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--line); border-radius:999px; padding:4px; margin:14px 0 2px; }
-  .toggle button { flex:1; background:transparent; color:var(--muted); border:0; border-radius:999px; padding:9px 10px; font-size:14px; font-weight:700; cursor:pointer; }
+  .toggle button { flex:1; background:transparent; color:var(--muted); border:0; border-radius:999px; padding:9px 6px; font-size:13.5px; font-weight:700; cursor:pointer; }
   .toggle button.active { background:var(--card); color:var(--txt); box-shadow:0 1px 4px rgba(0,0,0,.35); }
+
+  /* group standings tables */
+  .grouptip { font-size:12px; color:var(--muted); margin:12px 2px 2px; }
+  .grouptip b { color:var(--txt); }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:11.5px; color:var(--muted); margin:8px 2px 2px; }
+  .legend span { display:inline-flex; align-items:center; gap:5px; }
+  .swatch { width:10px; height:10px; border-radius:3px; display:inline-block; }
+  .sw.q  { background:var(--in); }
+  .sw.t3 { background:var(--warn); }
+  .sw.x  { background:var(--out); }
+  .gtable { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-top:12px; }
+  .gtable h3 { margin:0 0 6px; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+  .gtable h3 .gstate { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  table.st { width:100%; border-collapse:collapse; font-size:13px; }
+  table.st th { text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--muted); font-weight:700; padding:3px 4px; }
+  table.st th.l, table.st td.l { text-align:left; }
+  table.st td { padding:6px 4px; text-align:right; border-top:1px solid var(--line); }
+  table.st td.pts { font-weight:800; color:var(--txt); }
+  table.st td.tm { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px; }
+  table.st tr.q  td.pos { color:var(--in); font-weight:800; }
+  table.st tr.t3 td.pos { color:var(--warn); font-weight:800; }
+  table.st tr.x  td.pos { color:var(--out); font-weight:800; }
+  table.st tr.x  td.tm  { color:var(--muted); }
+  table.st .own { display:block; font-size:10.5px; font-weight:600; color:#8fb6ff; }
+  table.st td.pos { width:18px; text-align:center; }
 
   /* scoreboard */
   .scoregroup { margin-top:14px; }
@@ -174,6 +210,7 @@
 
   <div class="toggle" id="toggle">
     <button id="tabPlayers" class="active" onclick="showView('players')">🏆 Pool</button>
+    <button id="tabGroups" onclick="showView('groups')">📊 Groups</button>
     <button id="tabScores" onclick="showView('scores')">⚽ Scores</button>
   </div>
 
@@ -181,10 +218,12 @@
     <div id="winner"></div>
     <div id="content"><div class="skeleton">Crunching the bracket…</div></div>
   </div>
+  <div id="groupsView" style="display:none"><div class="skeleton">Building the tables…</div></div>
   <div id="scoresView" style="display:none"><div class="skeleton">Loading fixtures…</div></div>
 
   <footer>
     Auto-refreshes every couple of minutes. Pull down / tap <b>Refresh</b> for the latest.<br/>
+    <b>Format:</b> 12 groups of 4 → top 2 of each group + the 8 best 3rd-place teams reach the Round of 32, then straight knockout.<br/>
     Results: public-domain <a href="https://github.com/openfootball/worldcup.json" target="_blank" rel="noopener">openfootball</a> feed
     (updated within ~24h of each match — not a live in-play ticker).<br/>
     <span id="buildstamp"></span>
@@ -195,14 +234,20 @@
 /* ----------------------------------------------------------------------
    THE REAL WORLD CUP CESSPOOL — live status page
    Recomputes every team's status from the public results feed on each
-   load / refresh. Mirrors the rules in the Apps Script + test harness:
-     Still In  /  Eliminated  /  Champion
+   load / refresh.
+
+   2026 format (48 teams): 12 groups of 4. The top 2 of every group plus
+   the 8 best 3rd-place teams (32 total) advance to the Round of 32, then
+   it's single-elimination knockout through to the Final.
+
+   A team is "Still In" while it can still reach / advance through the
+   bracket, "Eliminated" once it can't, and "Champion" if it wins the Final.
    ---------------------------------------------------------------------- */
 
 /* --- Pool roster (edit here if picks ever change) --- */
 const POOL = {
   poolName: "The Real World Cup Cesspool",
-  notInField: ["Scotland", "Iraq"],
+  notInField: [],   // teams that didn't make the WC field (none — every pick is in the feed)
   players: [
     { name: "Coy",      teams: ["Spain", "Jordan", "Scotland", "Canada"] },
     { name: "Alan",     teams: ["France", "Curaçao", "Austria", "Czech Republic"] },
@@ -223,7 +268,7 @@ const POOL = {
 const FEED_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json";
 const AUTO_REFRESH_MS = 120000; // 2 minutes
 
-/* ---------------- status logic (mirrors status-logic.js) -------------- */
+/* ---------------- team-name matching --------------------------------- */
 const NOT_IN_FIELD = POOL.notInField;
 const TEAM_ALIASES = {
   'Czech Republic': ['Czechia', 'Czech Republic'],
@@ -233,7 +278,8 @@ const TEAM_ALIASES = {
   'Curaçao': ['Curacao', 'Curaçao'],
   'Cape Verde': ['Cabo Verde', 'Cape Verde'],
   'USA': ['United States', 'USA', 'US'],
-  'Bosnia': ['Bosnia and Herzegovina', 'Bosnia & Herzegovina', 'Bosnia']
+  'Bosnia': ['Bosnia and Herzegovina', 'Bosnia & Herzegovina', 'Bosnia'],
+  'Turkey': ['Türkiye', 'Turkey']
 };
 function aliasesFor(p){ return TEAM_ALIASES[p] || [p]; }
 function sameTeam(feed, pool){
@@ -241,56 +287,185 @@ function sameTeam(feed, pool){
   const c = aliasesFor(pool).map(s=>s.toLowerCase().trim());
   return c.indexOf(String(feed).toLowerCase().trim()) !== -1;
 }
+
+/* ---------------- match helpers -------------------------------------- */
 function isPlayed(m){ return m && m.score && (m.score.ft || m.score.et || m.score.p); }
+function isGroupMatch(m){ return !!m.group; }
 function isKnockout(r){ r=String(r||'').toLowerCase();
   return r.indexOf('round of')!==-1||r.indexOf('quarter')!==-1||r.indexOf('semi')!==-1||r.indexOf('final')!==-1||r.indexOf('third')!==-1; }
 function isFinal(r){ r=String(r||'').toLowerCase();
   return r.indexOf('final')!==-1 && r.indexOf('quarter')===-1 && r.indexOf('semi')===-1 && r.indexOf('third')===-1; }
+function isKnockoutMatch(m){ return !m.group && isKnockout(m.round); }
+function ftOf(m){ const s=m.score||{}; return s.et || s.ft || null; }
 function winnerOf(m){ if(!isPlayed(m)) return null; const s=m.score; const p=s.p||s.et||s.ft;
   if(!p||p.length!==2) return null; if(p[0]>p[1]) return m.team1; if(p[1]>p[0]) return m.team2; return null; }
 function loserOf(m){ const w=winnerOf(m); if(!w) return null; return (w===m.team1)?m.team2:m.team1; }
 
-function statusFor(team, matches){
-  let status = 'Still In';
-  for(const nf of NOT_IN_FIELD){ if(sameTeam(nf,team)||team===nf) status='Eliminated'; }
+const KO_ORDER = { 'round of 32':1, 'round of 16':2, 'quarter':3, 'semi':4, 'third':5, 'final':6 };
+function koRank(r){ r=String(r||'').toLowerCase();
+  for(const k in KO_ORDER){ if(r.indexOf(k)!==-1) return KO_ORDER[k]; } return 0; }
+function koShort(r){ const L=String(r||'').toLowerCase();
+  if(L.indexOf('round of 32')!==-1) return 'R32';
+  if(L.indexOf('round of 16')!==-1) return 'R16';
+  if(L.indexOf('quarter')!==-1) return 'QF';
+  if(L.indexOf('semi')!==-1) return 'Semi';
+  if(L.indexOf('third')!==-1) return '3rd place';
+  if(L.indexOf('final')!==-1) return 'Final';
+  return String(r||''); }
+function koNext(r){ return ({ 'R32':'R16','R16':'QF','QF':'Semi','Semi':'Final' })[koShort(r)] || null; }
+
+/* ---------------- group standings ------------------------------------ */
+function cmpRow(a,b){ return (b.Pts-a.Pts) || (b.GD-a.GD) || (b.GF-a.GF) || a.team.localeCompare(b.team); }
+
+function computeGroups(matches){
+  const g = {};                                  // group name -> { team -> stats }
+  const total = {}, played = {};
   for(const m of matches){
-    if(!isPlayed(m)) continue;
-    if(!(sameTeam(m.team1,team)||sameTeam(m.team2,team))) continue;
-    if(isKnockout(m.round)){
-      const loser=loserOf(m);
-      if(loser && sameTeam(loser,team) && status!=='Champion') status='Eliminated';
-      if(isFinal(m.round)){ const w=winnerOf(m); if(w && sameTeam(w,team)) status='Champion'; }
+    if(!isGroupMatch(m)) continue;
+    total[m.group] = (total[m.group]||0)+1;
+    const grp = g[m.group] || (g[m.group]={});
+    for(const t of [m.team1, m.team2]){
+      if(!grp[t]) grp[t] = { team:t, group:m.group, P:0,W:0,D:0,L:0,GF:0,GA:0,Pts:0,GD:0 };
     }
+    if(!isPlayed(m)) continue;
+    played[m.group] = (played[m.group]||0)+1;
+    const ft = ftOf(m); if(!ft) continue;
+    const a=ft[0], b=ft[1], A=grp[m.team1], B=grp[m.team2];
+    A.P++; B.P++; A.GF+=a; A.GA+=b; B.GF+=b; B.GA+=a;
+    if(a>b){ A.W++; B.L++; A.Pts+=3; }
+    else if(b>a){ B.W++; A.L++; B.Pts+=3; }
+    else { A.D++; B.D++; A.Pts++; B.Pts++; }
   }
-  return status;
+  const out = {};
+  for(const name of Object.keys(g)){
+    const rows = Object.values(g[name]).map(r => (r.GD=r.GF-r.GA, r));
+    rows.sort(cmpRow);
+    rows.forEach((r,i)=> r.pos = i+1);
+    out[name] = { name, rows, complete: (played[name]||0) >= (total[name]||6) && (total[name]||0) > 0 };
+  }
+  return out;
+}
+
+/* Once every group is finished, work out the 8 best 3rd-place qualifiers. */
+function computeQualifiers(groups){
+  const names = Object.keys(groups);
+  const empty = { decided:false, qualified:new Set(), bestThirds:new Set() };
+  if(!names.length || !names.every(n => groups[n].complete)) return empty;
+
+  const qualified = new Set(), thirds = [];
+  for(const n of names){
+    const rows = groups[n].rows;
+    if(rows[0]) qualified.add(rows[0].team);
+    if(rows[1]) qualified.add(rows[1].team);
+    if(rows[2]) thirds.push(rows[2]);
+  }
+  thirds.sort(cmpRow);
+  const bestThirds = new Set(thirds.slice(0,8).map(r=>r.team));
+  bestThirds.forEach(t => qualified.add(t));
+  return { decided:true, qualified, bestThirds };
+}
+
+/* ---------------- per-team status ------------------------------------ */
+function findGroupRow(team, groups){
+  for(const n of Object.keys(groups))
+    for(const r of groups[n].rows)
+      if(sameTeam(r.team, team)) return r;
+  return null;
+}
+function inQualSet(team, set){ for(const t of set) if(sameTeam(t, team)) return true; return false; }
+
+function statusFor(team, matches, ctx){
+  for(const nf of NOT_IN_FIELD){
+    if(sameTeam(nf, team) || team===nf)
+      return { status:'Eliminated', cls:'out', ico:'✕', label:'not in field' };
+  }
+
+  /* --- knockout phase: scan real-name knockout matches for this team --- */
+  let lostRound=null, lostRank=99, wonFinal=false, reached=null, reachedRank=0;
+  for(const m of matches){
+    if(!isKnockoutMatch(m)) continue;
+    if(!(sameTeam(m.team1, team) || sameTeam(m.team2, team))) continue;
+    const rk = koRank(m.round);
+    if(rk > reachedRank){ reachedRank = rk; reached = m.round; }
+    if(!isPlayed(m)) continue;
+    const w = winnerOf(m), l = loserOf(m);
+    if(l && sameTeam(l, team) && rk < lostRank){ lostRank = rk; lostRound = m.round; }
+    if(isFinal(m.round) && w && sameTeam(w, team)) wonFinal = true;
+  }
+  if(wonFinal)   return { status:'Champion',   cls:'champ', ico:'🏆', label:'World Cup winner' };
+  if(lostRound)  return { status:'Eliminated', cls:'out',   ico:'✕', label:'lost '+koShort(lostRound) };
+  if(reached){
+    const nxt = koNext(reached);
+    return { status:'Still In', cls:'thru', ico:'→',
+             label: nxt ? 'into the '+nxt : 'in the '+koShort(reached) };
+  }
+
+  /* --- group phase --- */
+  const row = findGroupRow(team, ctx.groups);
+  if(!row) return { status:'Still In', cls:'in', ico:'✓', label:'awaiting kickoff' };
+  const ord = ['1st','2nd','3rd','4th'][row.pos-1] || (row.pos+'th');
+
+  if(ctx.qual.decided){
+    if(inQualSet(team, ctx.qual.qualified))
+      return { status:'Still In', cls:'thru', ico:'→', label:'through to R32 · '+ord+' '+row.group };
+    return { status:'Eliminated', cls:'out', ico:'✕', label:ord+' in '+row.group+' · out' };
+  }
+  return { status:'Still In', cls:'in', ico:'✓',
+           label: row.Pts+' pts · '+ord+' · '+row.group + (row.P ? ' ('+row.P+' pl)' : '') };
+}
+
+/* ---------------- phase / progress ----------------------------------- */
+function tournamentPhase(matches, qual){
+  if(matches.some(m => isFinal(m.round) && isPlayed(m))) return 'Final';
+  if(matches.some(m => isKnockoutMatch(m) && isPlayed(m))) return 'Knockout stage';
+  if(qual.decided) return 'Round of 32';
+  return 'Group stage';
 }
 
 /* ---------------- rendering ------------------------------------------- */
 const $ = id => document.getElementById(id);
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function buildContext(matches){
+  const grps = computeGroups(matches);
+  return { groups: grps, qual: computeQualifiers(grps) };
+}
 
 function render(data){
   const matches = (data && data.matches) || [];
+  const ctx = buildContext(matches);
+  LAST_CTX = ctx;
+
   const played = matches.filter(isPlayed).length;
   const total  = matches.length;
+  const phase  = tournamentPhase(matches, ctx.qual);
 
-  // progress bar
+  const gMatches = matches.filter(isGroupMatch);
+  const gPlayed  = gMatches.filter(isPlayed).length;
+  const gTotal   = gMatches.length;
+
   $('progFill').style.width = total ? Math.round(played/total*100)+'%' : '0%';
-  $('progLbl').textContent = total
-    ? `${played} of ${total} matches played` + (played===0 ? ' — tournament hasn’t kicked off yet' : '')
-    : 'Schedule loading…';
+  let lbl;
+  if(!total){ lbl = 'Schedule loading…'; }
+  else if(phase==='Group stage'){
+    lbl = `<span class="phasechip">Group stage</span>${gPlayed} of ${gTotal} group games played`
+        + (gPlayed===0 ? ' — kickoff pending' : '');
+  } else {
+    lbl = `<span class="phasechip">${esc(phase)}</span>${played} of ${total} matches played`;
+  }
+  $('progLbl').innerHTML = lbl;
 
-  // compute statuses
+  // per-player rows
   const rows = POOL.players.map(pl => {
-    const teams = pl.teams.map(t => ({ name: t, status: statusFor(t, matches) }));
-    const alive = teams.filter(t => t.status === 'Still In').length;
-    const hasChamp = teams.some(t => t.status === 'Champion');
-    const allOut = teams.every(t => t.status === 'Eliminated');
-    return { name: pl.name, teams, alive, hasChamp, allOut };
+    const teams = pl.teams.map(t => ({ name:t, ...statusFor(t, matches, ctx) }));
+    const alive    = teams.filter(t => t.status==='Still In').length;
+    const through  = teams.filter(t => t.cls==='thru').length;
+    const hasChamp = teams.some(t => t.status==='Champion');
+    const allOut   = teams.every(t => t.status==='Eliminated');
+    return { name: pl.name, teams, alive, through, hasChamp, allOut };
   });
-
-  // sort: champion holder first, then most teams alive, then name
   rows.sort((a,b) =>
-    (b.hasChamp - a.hasChamp) || (b.alive - a.alive) || a.name.localeCompare(b.name)
+    (b.hasChamp - a.hasChamp) || (b.alive - a.alive) || (b.through - a.through) || a.name.localeCompare(b.name)
   );
 
   // winner banner
@@ -300,22 +475,20 @@ function render(data){
     $('winner').innerHTML =
       `<div class="winner"><div class="big">🏆 WINNER: <span class="team">${esc(champRow.name)}</span></div>
        <div>${esc(champTeam)} won the World Cup — the pot is theirs.</div></div>`;
-  } else {
-    $('winner').innerHTML = '';
-  }
+  } else { $('winner').innerHTML = ''; }
 
-  // cards
+  // player cards
   $('content').innerHTML = '<div class="cards">' + rows.map((r,i) => {
     let pill = `<span class="pill alive">${r.alive} alive</span>`;
     let cls = '';
     if (r.hasChamp){ pill = `<span class="pill champ">🏆 Champion</span>`; cls=' champ'; }
     else if (r.allOut){ pill = `<span class="pill dead">Out</span>`; cls=' dead'; }
 
-    const chips = r.teams.map(t => {
-      const c = t.status==='Champion' ? 'champ' : (t.status==='Eliminated' ? 'out' : 'in');
-      const ico = t.status==='Champion' ? '🏆' : (t.status==='Eliminated' ? '✕' : '✓');
-      return `<span class="team ${c}"><span class="ico">${ico}</span>${esc(t.name)}</span>`;
-    }).join('');
+    const chips = r.teams.map(t =>
+      `<span class="team ${t.cls}">
+         <span class="tn"><span class="ico">${t.ico}</span>${esc(t.name)}</span>
+         <span class="det">${esc(t.label)}</span>
+       </span>`).join('');
 
     return `<div class="card${cls}">
       <div class="chead">
@@ -325,25 +498,70 @@ function render(data){
       <div class="teams">${chips}</div>
     </div>`;
   }).join('') + '</div>';
+
+  renderGroups(ctx);
 }
 
-function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
-/* ---------------- scoreboard view ------------------------------------- */
-let LAST = null;                       // last fetched feed (for "show more")
-let lim = { results: 12, upcoming: 12 };
-
-function showView(v){
-  $('playersView').style.display = v==='players' ? '' : 'none';
-  $('scoresView').style.display  = v==='scores'  ? '' : 'none';
-  $('tabPlayers').classList.toggle('active', v==='players');
-  $('tabScores').classList.toggle('active', v==='scores');
-}
-
+/* ---------------- groups (standings) view ----------------------------- */
 function ownerOf(feedTeam){
   for(const p of POOL.players) for(const t of p.teams) if(sameTeam(feedTeam, t)) return p.name;
   return null;
 }
+
+function renderGroups(ctx){
+  const names = Object.keys(ctx.groups).sort();
+  if(!names.length){ $('groupsView').innerHTML = `<div class="skeleton">No groups in the feed yet.</div>`; return; }
+  const decided = ctx.qual.decided;
+
+  const legend = `
+    <div class="grouptip">Top 2 of every group qualify automatically; the <b>8 best 3rd-place teams</b> across all 12 groups grab the final Round-of-32 spots.</div>
+    <div class="legend">
+      <span><i class="swatch sw q"></i> Qualifies (top 2)</span>
+      <span><i class="swatch sw t3"></i> 3rd — in the best-8 race</span>
+      <span><i class="swatch sw x"></i> Eliminated</span>
+    </div>`;
+
+  const tables = names.map(n => {
+    const G = ctx.groups[n];
+    const body = G.rows.map(r => {
+      let rc;
+      if(r.pos<=2) rc='q';
+      else if(r.pos===3) rc = decided ? (ctx.qual.bestThirds.has(r.team) ? 'q' : 'x') : 't3';
+      else rc = decided ? 'x' : '';
+      const own = ownerOf(r.team);
+      return `<tr class="${rc}">
+        <td class="pos">${r.pos}</td>
+        <td class="l tm">${esc(r.team)}${own?`<span class="own">▸ ${esc(own)}</span>`:''}</td>
+        <td>${r.P}</td><td>${r.W}-${r.D}-${r.L}</td>
+        <td>${r.GD>0?'+':''}${r.GD}</td>
+        <td class="pts">${r.Pts}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="gtable">
+      <h3>${esc(n)} <span class="gstate">${G.complete?'Final':'In progress'}</span></h3>
+      <table class="st">
+        <thead><tr><th class="pos">#</th><th class="l">Team</th><th>P</th><th>W-D-L</th><th>GD</th><th>Pts</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  $('groupsView').innerHTML = legend + tables;
+}
+
+/* ---------------- scoreboard view ------------------------------------- */
+let LAST = null, LAST_CTX = { groups:{}, qual:{decided:false,qualified:new Set(),bestThirds:new Set()} };
+let lim = { results: 12, upcoming: 12 };
+
+function showView(v){
+  $('playersView').style.display = v==='players' ? '' : 'none';
+  $('groupsView').style.display  = v==='groups'  ? '' : 'none';
+  $('scoresView').style.display  = v==='scores'  ? '' : 'none';
+  $('tabPlayers').classList.toggle('active', v==='players');
+  $('tabGroups').classList.toggle('active', v==='groups');
+  $('tabScores').classList.toggle('active', v==='scores');
+}
+
 function todayISO(){
   const d = new Date(); const z = n => String(n).padStart(2,'0');
   return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
@@ -354,7 +572,7 @@ function matchRow(m){
   const played = isPlayed(m);
   const w = winnerOf(m);
   const o1 = ownerOf(m.team1), o2 = ownerOf(m.team2);
-  const grp = [m.group, m.round].filter(Boolean).join(' · ');
+  const grp = [m.group, isKnockoutMatch(m)?koShort(m.round):null].filter(Boolean).join(' · ') || m.round || '';
   const today = m.date === todayISO();
 
   let state = played ? 'FT' : (today ? 'TODAY' : 'Scheduled');
@@ -412,12 +630,8 @@ function renderScores(matches){
     : `<div class="skeleton">No fixtures in the feed yet.</div>`;
 }
 
-function setStamp(text, live){
-  $('stamp').innerHTML = `<span class="dot ${live?'live':''}"></span>${text}`;
-}
-function fmtTime(d){
-  return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-}
+function setStamp(text, live){ $('stamp').innerHTML = `<span class="dot ${live?'live':''}"></span>${text}`; }
+function fmtTime(d){ return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }
 
 /* ---------------- fetch + lifecycle ----------------------------------- */
 let busy = false;
@@ -428,7 +642,6 @@ async function refresh(){
   $('refreshIco').className = 'spin';
   setStamp('Checking for results…', false);
   try {
-    // cache-bust so phones/CDN always pull the freshest feed
     const res = await fetch(FEED_URL + '?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
@@ -447,13 +660,11 @@ async function refresh(){
 
 function showError(msg){
   let el = $('errbox');
-  if(!el){ el = document.createElement('div'); el.id='errbox'; el.className='err';
-    $('toggle').before(el); }
+  if(!el){ el = document.createElement('div'); el.id='errbox'; el.className='err'; $('toggle').before(el); }
   el.textContent = msg;
 }
 function hideError(){ const el=$('errbox'); if(el) el.remove(); }
 
-// auto-refresh, and refresh when the tab/phone wakes up
 setInterval(() => { if(!document.hidden) refresh(); }, AUTO_REFRESH_MS);
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refresh(); });
 
