@@ -1,0 +1,19 @@
+{
+  "name": "The Real World Cup Cesspool",
+  "short_name": "Cesspool",
+  "description": "2026 FIFA World Cup pool — last team standing takes the pot.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

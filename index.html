@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>⚽ The Real World Cup Cesspool</title>
+
+<!-- Add-to-Home-Screen / iPhone web app -->
+<meta name="theme-color" content="#0b132b" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Cesspool" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+
+<style>
+  :root {
+    --bg: #0b132b;
+    --bg2: #131c3a;
+    --card: #18213f;
+    --line: #2a3656;
+    --txt: #eaf0ff;
+    --muted: #9fb0d4;
+    --in: #2ecc71;
+    --in-bg: rgba(46,204,113,.13);
+    --out: #ff5c6c;
+    --out-bg: rgba(255,92,108,.12);
+    --champ: #ffd23f;
+    --champ-bg: rgba(255,210,63,.15);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #1c2a52 0%, var(--bg) 55%) fixed;
+    color: var(--txt);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 24px) env(safe-area-inset-left);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 18px 14px 0; }
+
+  header { text-align: center; padding: 10px 0 4px; }
+  header .ball { font-size: 34px; }
+  h1 {
+    font-size: clamp(22px, 6vw, 30px);
+    margin: 2px 0 2px;
+    letter-spacing: .3px;
+    background: linear-gradient(90deg,#ffd23f,#ff8c42,#ffd23f);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { color: var(--muted); font-size: 13px; }
+
+  /* status / refresh bar */
+  .bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin: 14px 0 6px; flex-wrap: wrap;
+  }
+  .stamp { color: var(--muted); font-size: 12.5px; flex: 1 1 auto; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); margin-right:6px; vertical-align: middle;}
+  .dot.live { background: var(--in); box-shadow: 0 0 0 0 rgba(46,204,113,.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(46,204,113,.5)} 70%{box-shadow:0 0 0 7px rgba(46,204,113,0)} 100%{box-shadow:0 0 0 0 rgba(46,204,113,0)} }
+  button.refresh {
+    background: var(--bg2); color: var(--txt); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; display:inline-flex; align-items:center; gap:7px;
+  }
+  button.refresh:active { transform: scale(.97); }
+  button.refresh[disabled] { opacity: .55; }
+  .spin { display:inline-block; animation: rot 1s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+
+  /* progress */
+  .progress { margin: 8px 0 4px; }
+  .progress .track { height: 7px; background: var(--bg2); border:1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .progress .fill { height: 100%; width: 0%; background: linear-gradient(90deg,#3aa0ff,#2ecc71); transition: width .6s ease; }
+  .progress .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* champion banner */
+  .winner {
+    margin: 14px 0; padding: 16px; border-radius: 16px; text-align: center;
+    background: linear-gradient(135deg, #4a3a00, #7a5c00);
+    border: 1px solid var(--champ); color: #fff;
+    box-shadow: 0 8px 30px rgba(255,210,63,.18);
+  }
+  .winner .big { font-size: 24px; font-weight: 800; }
+  .winner .team { color: var(--champ); }
+
+  /* player cards */
+  .cards { display: grid; gap: 12px; margin-top: 8px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 13px 14px;
+  }
+  .card.dead { opacity: .62; }
+  .card.champ { border-color: var(--champ); box-shadow: 0 0 0 1px var(--champ) inset, 0 8px 24px rgba(255,210,63,.12); }
+  .chead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pname { font-size: 18px; font-weight: 700; display:flex; align-items:center; gap:8px;}
+  .rank { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .pill {
+    font-size: 11.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  }
+  .pill.alive { color: var(--in); background: var(--in-bg); }
+  .pill.dead  { color: var(--out); background: var(--out-bg); }
+  .pill.champ { color: #1c1500; background: var(--champ); }
+
+  .teams { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+  .team {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13.5px; font-weight: 600;
+    padding: 6px 11px; border-radius: 10px; border: 1px solid var(--line);
+  }
+  .team.in    { color: #d7ffe7; background: var(--in-bg);  border-color: rgba(46,204,113,.4); }
+  .team.out   { color: #ffd9de; background: var(--out-bg); border-color: rgba(255,92,108,.4); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .team.champ { color: #1c1500; background: var(--champ); border-color: var(--champ); }
+  .team .ico { font-size: 12px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 22px; line-height:1.6; }
+  footer a { color: #8fb6ff; }
+
+  .err {
+    background: var(--out-bg); border: 1px solid rgba(255,92,108,.4);
+    color: #ffd9de; padding: 12px 14px; border-radius: 12px; margin: 12px 0; font-size: 14px;
+  }
+  .skeleton { color: var(--muted); text-align:center; padding: 30px 0; }
+
+  /* view toggle */
+  .toggle { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--line); border-radius:999px; padding:4px; margin:14px 0 2px; }
+  .toggle button { flex:1; background:transparent; color:var(--muted); border:0; border-radius:999px; padding:9px 10px; font-size:14px; font-weight:700; cursor:pointer; }
+  .toggle button.active { background:var(--card); color:var(--txt); box-shadow:0 1px 4px rgba(0,0,0,.35); }
+
+  /* scoreboard */
+  .scoregroup { margin-top:14px; }
+  .scoregroup > h2 { font-size:12.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:0 0 8px; }
+  .match { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:9px; }
+  .mtop { display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--muted); margin-bottom:7px; gap:8px; }
+  .mtop span:first-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mstate { font-weight:800; letter-spacing:.4px; white-space:nowrap; }
+  .mstate.today { color:var(--champ); }
+  .mrow { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; }
+  .mteam { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .mteam.r { align-items:flex-end; text-align:right; }
+  .mteam .nm { font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .mteam .nm.win { color:#fff; }
+  .mteam .nm.lose { color:var(--muted); }
+  .mteam .own { font-size:11px; color:#8fb6ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .mscore { font-size:18px; font-weight:800; text-align:center; min-width:52px; }
+  .mscore .vs { font-size:12px; font-weight:600; color:var(--muted); }
+  .mscore .pk { display:block; font-size:10px; font-weight:600; color:var(--muted); }
+  .mfoot { font-size:11px; color:var(--muted); margin-top:7px; }
+  .showmore { width:100%; background:var(--bg2); color:var(--muted); border:1px solid var(--line); border-radius:10px; padding:9px; font-size:13px; font-weight:600; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ball">⚽</div>
+    <h1>The Real World Cup Cesspool</h1>
+    <div class="sub">2026 FIFA World Cup &middot; last team standing takes the pot</div>
+  </header>
+
+  <div class="bar">
+    <div class="stamp" id="stamp"><span class="dot"></span>Loading results…</div>
+    <button class="refresh" id="refreshBtn" onclick="refresh()">
+      <span id="refreshIco">↻</span> Refresh
+    </button>
+  </div>
+
+  <div class="progress">
+    <div class="track"><div class="fill" id="progFill"></div></div>
+    <div class="lbl" id="progLbl">&nbsp;</div>
+  </div>
+
+  <div class="toggle" id="toggle">
+    <button id="tabPlayers" class="active" onclick="showView('players')">🏆 Pool</button>
+    <button id="tabScores" onclick="showView('scores')">⚽ Scores</button>
+  </div>
+
+  <div id="playersView">
+    <div id="winner"></div>
+    <div id="content"><div class="skeleton">Crunching the bracket…</div></div>
+  </div>
+  <div id="scoresView" style="display:none"><div class="skeleton">Loading fixtures…</div></div>
+
+  <footer>
+    Auto-refreshes every couple of minutes. Pull down / tap <b>Refresh</b> for the latest.<br/>
+    Results: public-domain <a href="https://github.com/openfootball/worldcup.json" target="_blank" rel="noopener">openfootball</a> feed
+    (updated within ~24h of each match — not a live in-play ticker).<br/>
+    <span id="buildstamp"></span>
+  </footer>
+</div>
+
+<script>
+/* ----------------------------------------------------------------------
+   THE REAL WORLD CUP CESSPOOL — live status page
+   Recomputes every team's status from the public results feed on each
+   load / refresh. Mirrors the rules in the Apps Script + test harness:
+     Still In  /  Eliminated  /  Champion
+   ---------------------------------------------------------------------- */
+
+/* --- Pool roster (edit here if picks ever change) --- */
+const POOL = {
+  poolName: "The Real World Cup Cesspool",
+  notInField: ["Scotland", "Iraq"],
+  players: [
+    { name: "Coy",      teams: ["Spain", "Jordan", "Scotland", "Canada"] },
+    { name: "Alan",     teams: ["France", "Curaçao", "Austria", "Czech Republic"] },
+    { name: "Rob",      teams: ["England", "Haiti", "Sweden", "Ivory Coast"] },
+    { name: "Crazy",    teams: ["Portugal", "Iraq", "Senegal", "Ghana"] },
+    { name: "Julianne", teams: ["Brazil", "New Zealand", "Croatia", "Egypt"] },
+    { name: "Maryl",    teams: ["Argentina", "Qatar", "Turkey", "Paraguay"] },
+    { name: "Eric",     teams: ["Germany", "Uzbekistan", "Ecuador", "Algeria"] },
+    { name: "David",    teams: ["Netherlands", "Panama", "Uruguay", "South Korea"] },
+    { name: "Heather",  teams: ["Norway", "Saudi Arabia", "Mexico", "Tunisia"] },
+    { name: "Hayley",   teams: ["Colombia", "Cape Verde", "Switzerland", "Bosnia"] },
+    { name: "Kevin",    teams: ["Belgium", "South Africa", "USA", "Australia"] },
+    { name: "Evan",     teams: ["Morocco", "DR Congo", "Japan", "Iran"] }
+  ]
+};
+
+/* --- Data feed (same source as the Apps Script) --- */
+const FEED_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json";
+const AUTO_REFRESH_MS = 120000; // 2 minutes
+
+/* ---------------- status logic (mirrors status-logic.js) -------------- */
+const NOT_IN_FIELD = POOL.notInField;
+const TEAM_ALIASES = {
+  'Czech Republic': ['Czechia', 'Czech Republic'],
+  'Ivory Coast': ["Côte d'Ivoire", 'Ivory Coast', "Cote d'Ivoire"],
+  'DR Congo': ['Congo DR', 'DR Congo', 'Congo'],
+  'South Korea': ['Korea Republic', 'South Korea', 'Korea'],
+  'Curaçao': ['Curacao', 'Curaçao'],
+  'Cape Verde': ['Cabo Verde', 'Cape Verde'],
+  'USA': ['United States', 'USA', 'US'],
+  'Bosnia': ['Bosnia and Herzegovina', 'Bosnia & Herzegovina', 'Bosnia']
+};
+function aliasesFor(p){ return TEAM_ALIASES[p] || [p]; }
+function sameTeam(feed, pool){
+  if(!feed) return false;
+  const c = aliasesFor(pool).map(s=>s.toLowerCase().trim());
+  return c.indexOf(String(feed).toLowerCase().trim()) !== -1;
+}
+function isPlayed(m){ return m && m.score && (m.score.ft || m.score.et || m.score.p); }
+function isKnockout(r){ r=String(r||'').toLowerCase();
+  return r.indexOf('round of')!==-1||r.indexOf('quarter')!==-1||r.indexOf('semi')!==-1||r.indexOf('final')!==-1||r.indexOf('third')!==-1; }
+function isFinal(r){ r=String(r||'').toLowerCase();
+  return r.indexOf('final')!==-1 && r.indexOf('quarter')===-1 && r.indexOf('semi')===-1 && r.indexOf('third')===-1; }
+function winnerOf(m){ if(!isPlayed(m)) return null; const s=m.score; const p=s.p||s.et||s.ft;
+  if(!p||p.length!==2) return null; if(p[0]>p[1]) return m.team1; if(p[1]>p[0]) return m.team2; return null; }
+function loserOf(m){ const w=winnerOf(m); if(!w) return null; return (w===m.team1)?m.team2:m.team1; }
+
+function statusFor(team, matches){
+  let status = 'Still In';
+  for(const nf of NOT_IN_FIELD){ if(sameTeam(nf,team)||team===nf) status='Eliminated'; }
+  for(const m of matches){
+    if(!isPlayed(m)) continue;
+    if(!(sameTeam(m.team1,team)||sameTeam(m.team2,team))) continue;
+    if(isKnockout(m.round)){
+      const loser=loserOf(m);
+      if(loser && sameTeam(loser,team) && status!=='Champion') status='Eliminated';
+      if(isFinal(m.round)){ const w=winnerOf(m); if(w && sameTeam(w,team)) status='Champion'; }
+    }
+  }
+  return status;
+}
+
+/* ---------------- rendering ------------------------------------------- */
+const $ = id => document.getElementById(id);
+
+function render(data){
+  const matches = (data && data.matches) || [];
+  const played = matches.filter(isPlayed).length;
+  const total  = matches.length;
+
+  // progress bar
+  $('progFill').style.width = total ? Math.round(played/total*100)+'%' : '0%';
+  $('progLbl').textContent = total
+    ? `${played} of ${total} matches played` + (played===0 ? ' — tournament hasn’t kicked off yet' : '')
+    : 'Schedule loading…';
+
+  // compute statuses
+  const rows = POOL.players.map(pl => {
+    const teams = pl.teams.map(t => ({ name: t, status: statusFor(t, matches) }));
+    const alive = teams.filter(t => t.status === 'Still In').length;
+    const hasChamp = teams.some(t => t.status === 'Champion');
+    const allOut = teams.every(t => t.status === 'Eliminated');
+    return { name: pl.name, teams, alive, hasChamp, allOut };
+  });
+
+  // sort: champion holder first, then most teams alive, then name
+  rows.sort((a,b) =>
+    (b.hasChamp - a.hasChamp) || (b.alive - a.alive) || a.name.localeCompare(b.name)
+  );
+
+  // winner banner
+  const champRow = rows.find(r => r.hasChamp);
+  if (champRow){
+    const champTeam = champRow.teams.find(t => t.status==='Champion').name;
+    $('winner').innerHTML =
+      `<div class="winner"><div class="big">🏆 WINNER: <span class="team">${esc(champRow.name)}</span></div>
+       <div>${esc(champTeam)} won the World Cup — the pot is theirs.</div></div>`;
+  } else {
+    $('winner').innerHTML = '';
+  }
+
+  // cards
+  $('content').innerHTML = '<div class="cards">' + rows.map((r,i) => {
+    let pill = `<span class="pill alive">${r.alive} alive</span>`;
+    let cls = '';
+    if (r.hasChamp){ pill = `<span class="pill champ">🏆 Champion</span>`; cls=' champ'; }
+    else if (r.allOut){ pill = `<span class="pill dead">Out</span>`; cls=' dead'; }
+
+    const chips = r.teams.map(t => {
+      const c = t.status==='Champion' ? 'champ' : (t.status==='Eliminated' ? 'out' : 'in');
+      const ico = t.status==='Champion' ? '🏆' : (t.status==='Eliminated' ? '✕' : '✓');
+      return `<span class="team ${c}"><span class="ico">${ico}</span>${esc(t.name)}</span>`;
+    }).join('');
+
+    return `<div class="card${cls}">
+      <div class="chead">
+        <div class="pname"><span class="rank">#${i+1}</span> ${esc(r.name)}</div>
+        ${pill}
+      </div>
+      <div class="teams">${chips}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------------- scoreboard view ------------------------------------- */
+let LAST = null;                       // last fetched feed (for "show more")
+let lim = { results: 12, upcoming: 12 };
+
+function showView(v){
+  $('playersView').style.display = v==='players' ? '' : 'none';
+  $('scoresView').style.display  = v==='scores'  ? '' : 'none';
+  $('tabPlayers').classList.toggle('active', v==='players');
+  $('tabScores').classList.toggle('active', v==='scores');
+}
+
+function ownerOf(feedTeam){
+  for(const p of POOL.players) for(const t of p.teams) if(sameTeam(feedTeam, t)) return p.name;
+  return null;
+}
+function todayISO(){
+  const d = new Date(); const z = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+}
+function fmtDay(d){ try { return new Date(d+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); } catch(e){ return d||''; } }
+
+function matchRow(m){
+  const played = isPlayed(m);
+  const w = winnerOf(m);
+  const o1 = ownerOf(m.team1), o2 = ownerOf(m.team2);
+  const grp = [m.group, m.round].filter(Boolean).join(' · ');
+  const today = m.date === todayISO();
+
+  let state = played ? 'FT' : (today ? 'TODAY' : 'Scheduled');
+  let stateCls = (today && !played) ? 'today' : '';
+
+  let score;
+  if(played){
+    const s = m.score, ft = s.et || s.ft || [];
+    let extra = '';
+    if(s.p) extra = `<span class="pk">pens ${s.p[0]}–${s.p[1]}</span>`;
+    else if(s.et) extra = `<span class="pk">a.e.t.</span>`;
+    score = `${ft[0]}–${ft[1]}${extra}`;
+  } else {
+    score = `<span class="vs">${m.time ? esc(m.time) : 'vs'}</span>`;
+  }
+
+  const t1cls = (played && w) ? (w===m.team1 ? 'win':'lose') : '';
+  const t2cls = (played && w) ? (w===m.team2 ? 'win':'lose') : '';
+
+  return `<div class="match">
+    <div class="mtop"><span>${esc(grp)}</span><span class="mstate ${stateCls}">${esc(state)}</span></div>
+    <div class="mrow">
+      <div class="mteam">
+        <span class="nm ${t1cls}">${esc(m.team1)}</span>
+        ${o1 ? `<span class="own">▸ ${esc(o1)}</span>` : ''}
+      </div>
+      <div class="mscore">${score}</div>
+      <div class="mteam r">
+        <span class="nm ${t2cls}">${esc(m.team2)}</span>
+        ${o2 ? `<span class="own">${esc(o2)} ◂</span>` : ''}
+      </div>
+    </div>
+    <div class="mfoot">${esc(fmtDay(m.date))}${m.ground ? ' · ' + esc(m.ground) : ''}</div>
+  </div>`;
+}
+
+function renderScores(matches){
+  const played   = matches.filter(isPlayed);
+  const upcoming = matches.filter(m => !isPlayed(m));
+  played.sort((a,b)   => (b.date||'').localeCompare(a.date||'') || (b.time||'').localeCompare(a.time||''));
+  upcoming.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''));
+
+  const sec = (title, arr, key) => {
+    if(!arr.length) return '';
+    const shown = arr.slice(0, lim[key]).map(matchRow).join('');
+    const left = arr.length - lim[key];
+    const more = left > 0
+      ? `<button class="showmore" onclick="lim.${key}+=20;renderScores(LAST.matches||[])">Show ${Math.min(20,left)} more (${left} left)</button>`
+      : '';
+    return `<div class="scoregroup"><h2>${title} (${arr.length})</h2>${shown}${more}</div>`;
+  };
+
+  $('scoresView').innerHTML = (played.length || upcoming.length)
+    ? sec('Latest results', played, 'results') + sec('Upcoming', upcoming, 'upcoming')
+    : `<div class="skeleton">No fixtures in the feed yet.</div>`;
+}
+
+function setStamp(text, live){
+  $('stamp').innerHTML = `<span class="dot ${live?'live':''}"></span>${text}`;
+}
+function fmtTime(d){
+  return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+}
+
+/* ---------------- fetch + lifecycle ----------------------------------- */
+let busy = false;
+async function refresh(){
+  if (busy) return;
+  busy = true;
+  const btn = $('refreshBtn'); btn.disabled = true;
+  $('refreshIco').className = 'spin';
+  setStamp('Checking for results…', false);
+  try {
+    // cache-bust so phones/CDN always pull the freshest feed
+    const res = await fetch(FEED_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    LAST = data;
+    render(data);
+    renderScores(data.matches || []);
+    setStamp('Updated ' + fmtTime(new Date()), true);
+    hideError();
+  } catch (e) {
+    showError('Couldn’t reach the results feed (' + e.message + '). Will retry automatically.');
+    setStamp('Offline — last shown data may be stale', false);
+  } finally {
+    busy = false; btn.disabled = false; $('refreshIco').className = '';
+  }
+}
+
+function showError(msg){
+  let el = $('errbox');
+  if(!el){ el = document.createElement('div'); el.id='errbox'; el.className='err';
+    $('toggle').before(el); }
+  el.textContent = msg;
+}
+function hideError(){ const el=$('errbox'); if(el) el.remove(); }
+
+// auto-refresh, and refresh when the tab/phone wakes up
+setInterval(() => { if(!document.hidden) refresh(); }, AUTO_REFRESH_MS);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) refresh(); });
+
+$('buildstamp').textContent = 'Page loaded ' + fmtTime(new Date());
+refresh();
+</script>
+</body>
+</html>

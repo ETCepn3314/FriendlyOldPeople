@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#1c2a52"/>
+      <stop offset="100%" stop-color="#0b132b"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="150" fill="#ffffff"/>
+  <g fill="#0b132b">
+    <polygon points="256,180 286,202 274,238 238,238 226,202"/>
+    <polygon points="256,332 226,310 238,274 274,274 286,310"/>
+    <polygon points="180,238 210,216 240,238 228,274 192,274"/>
+    <polygon points="332,238 302,216 272,238 284,274 320,274"/>
+  </g>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#ffd23f" stroke-width="14"/>
+</svg>
