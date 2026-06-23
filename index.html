@@ -123,7 +123,7 @@
   .team.in    { color: #d7ffe7; background: var(--in-bg);  border-color: rgba(46,204,113,.4); }
   .team.thru  { color: #cfe6ff; background: var(--thru-bg); border-color: rgba(58,160,255,.45); }
   .team.risk  { color: #ffe6c2; background: var(--warn-bg); border-color: rgba(255,179,71,.5); }
-  .team.out   { color: #ffd9de; background: var(--out-bg); border-color: rgba(255,92,108,.4); }
+  .team.out   { color: #ffd9de; background: var(--out-bg); border-color: rgba(255,92,108,.4); opacity: .6; }
   .team.out .tn { text-decoration: line-through; text-decoration-thickness: 1.5px; }
   .team.champ { color: #1c1500; background: var(--champ); border-color: var(--champ); }
   .team .ico { font-size: 12px; }
@@ -504,7 +504,11 @@ function render(data){
     if (r.hasChamp){ pill = `<span class="pill champ">🏆 Champion</span>`; cls=' champ'; }
     else if (r.allOut){ pill = `<span class="pill dead">Out — all ${r.teams.length} eliminated</span>`; cls=' dead'; }
 
-    const chips = r.teams.map(t =>
+    // remaining teams first (champ → through → in → on the brink), eliminated last
+    const chipOrder = { champ:0, thru:1, in:2, risk:3, out:4 };
+    const chips = [...r.teams]
+      .sort((a,b) => (chipOrder[a.cls] ?? 9) - (chipOrder[b.cls] ?? 9))
+      .map(t =>
       `<span class="team ${t.cls}">
          <span class="tn"><span class="ico">${t.ico}</span>${esc(t.name)}</span>
          <span class="det">${esc(t.label)}</span>
