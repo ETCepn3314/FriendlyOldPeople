@@ -122,6 +122,7 @@
   .team .det { font-size: 11px; font-weight: 600; opacity: .85; }
   .team.in    { color: #d7ffe7; background: var(--in-bg);  border-color: rgba(46,204,113,.4); }
   .team.thru  { color: #cfe6ff; background: var(--thru-bg); border-color: rgba(58,160,255,.45); }
+  .team.risk  { color: #ffe6c2; background: var(--warn-bg); border-color: rgba(255,179,71,.5); }
   .team.out   { color: #ffd9de; background: var(--out-bg); border-color: rgba(255,92,108,.4); }
   .team.out .tn { text-decoration: line-through; text-decoration-thickness: 1.5px; }
   .team.champ { color: #1c1500; background: var(--champ); border-color: var(--champ); }
@@ -312,7 +313,6 @@ function koShort(r){ const L=String(r||'').toLowerCase();
   if(L.indexOf('third')!==-1) return '3rd place';
   if(L.indexOf('final')!==-1) return 'Final';
   return String(r||''); }
-function koNext(r){ return ({ 'R32':'R16','R16':'QF','QF':'Semi','Semi':'Final' })[koShort(r)] || null; }
 
 /* ---------------- group standings ------------------------------------ */
 function cmpRow(a,b){ return (b.Pts-a.Pts) || (b.GD-a.GD) || (b.GF-a.GF) || a.team.localeCompare(b.team); }
@@ -341,6 +341,16 @@ function computeGroups(matches){
     const rows = Object.values(g[name]).map(r => (r.GD=r.GF-r.GA, r));
     rows.sort(cmpRow);
     rows.forEach((r,i)=> r.pos = i+1);
+    // mathematical projections (each team plays 3 group games)
+    rows.forEach(r => { r.rem = Math.max(0, 3 - r.P); r.maxPts = r.Pts + 3*r.rem; });
+    rows.forEach(r => {
+      // certainlyAbove: rivals whose CURRENT points already beat my best-case total
+      const certainlyAbove = rows.filter(o => o!==r && o.Pts > r.maxPts).length;
+      // canBeAbove: rivals who could still finish strictly above my worst-case total
+      const canBeAbove = rows.filter(o => o!==r && o.maxPts > r.Pts).length;
+      r.elimMath = certainlyAbove >= 3;   // locked into 4th — can't even be a 3rd-place qualifier
+      r.clinchTop2 = canBeAbove <= 1;     // guaranteed a top-2 spot
+    });
     out[name] = { name, rows, complete: (played[name]||0) >= (total[name]||6) && (total[name]||0) > 0 };
   }
   return out;
@@ -395,9 +405,9 @@ function statusFor(team, matches, ctx){
   if(wonFinal)   return { status:'Champion',   cls:'champ', ico:'🏆', label:'World Cup winner' };
   if(lostRound)  return { status:'Eliminated', cls:'out',   ico:'✕', label:'lost '+koShort(lostRound) };
   if(reached){
-    const nxt = koNext(reached);
-    return { status:'Still In', cls:'thru', ico:'→',
-             label: nxt ? 'into the '+nxt : 'in the '+koShort(reached) };
+    // furthest round the team appears in (bracket is pre-drawn, so this is the
+    // round they're currently contesting or awaiting) — not an assumption they advanced
+    return { status:'Still In', cls:'thru', ico:'→', label:'in the '+koShort(reached) };
   }
 
   /* --- group phase --- */
@@ -410,8 +420,15 @@ function statusFor(team, matches, ctx){
       return { status:'Still In', cls:'thru', ico:'→', label:'through to R32 · '+ord+' '+row.group };
     return { status:'Eliminated', cls:'out', ico:'✕', label:ord+' in '+row.group+' · out' };
   }
-  return { status:'Still In', cls:'in', ico:'✓',
-           label: row.Pts+' pts · '+ord+' · '+row.group + (row.P ? ' ('+row.P+' pl)' : '') };
+  // group stage still in progress — use mathematical projections
+  const where = row.Pts+' pts · '+ord+' · '+row.group;
+  if(row.elimMath)
+    return { status:'Eliminated', cls:'out', ico:'✕', label:'eliminated · '+where };
+  if(row.clinchTop2)
+    return { status:'Still In', cls:'thru', ico:'→', label:'through to R32 · '+where };
+  if(row.pos >= 3)
+    return { status:'Still In', cls:'risk', ico:'⚠', label:'on the brink · '+where };
+  return { status:'Still In', cls:'in', ico:'✓', label:where };
 }
 
 /* ---------------- phase / progress ----------------------------------- */
@@ -459,10 +476,12 @@ function render(data){
   const rows = POOL.players.map(pl => {
     const teams = pl.teams.map(t => ({ name:t, ...statusFor(t, matches, ctx) }));
     const alive    = teams.filter(t => t.status==='Still In').length;
+    const out       = teams.filter(t => t.status==='Eliminated').length;
     const through  = teams.filter(t => t.cls==='thru').length;
+    const risk      = teams.filter(t => t.cls==='risk').length;
     const hasChamp = teams.some(t => t.status==='Champion');
     const allOut   = teams.every(t => t.status==='Eliminated');
-    return { name: pl.name, teams, alive, through, hasChamp, allOut };
+    return { name: pl.name, teams, alive, out, through, risk, hasChamp, allOut };
   });
   rows.sort((a,b) =>
     (b.hasChamp - a.hasChamp) || (b.alive - a.alive) || (b.through - a.through) || a.name.localeCompare(b.name)
@@ -479,10 +498,11 @@ function render(data){
 
   // player cards
   $('content').innerHTML = '<div class="cards">' + rows.map((r,i) => {
-    let pill = `<span class="pill alive">${r.alive} alive</span>`;
+    let pill = `<span class="pill alive">${r.alive} alive</span>`
+             + (r.out ? ` <span class="pill dead">${r.out} out</span>` : '');
     let cls = '';
     if (r.hasChamp){ pill = `<span class="pill champ">🏆 Champion</span>`; cls=' champ'; }
-    else if (r.allOut){ pill = `<span class="pill dead">Out</span>`; cls=' dead'; }
+    else if (r.allOut){ pill = `<span class="pill dead">Out — all ${r.teams.length} eliminated</span>`; cls=' dead'; }
 
     const chips = r.teams.map(t =>
       `<span class="team ${t.cls}">
@@ -525,9 +545,15 @@ function renderGroups(ctx){
     const G = ctx.groups[n];
     const body = G.rows.map(r => {
       let rc;
-      if(r.pos<=2) rc='q';
-      else if(r.pos===3) rc = decided ? (ctx.qual.bestThirds.has(r.team) ? 'q' : 'x') : 't3';
-      else rc = decided ? 'x' : '';
+      if(decided){
+        if(r.pos<=2) rc='q';
+        else if(r.pos===3) rc = ctx.qual.bestThirds.has(r.team) ? 'q' : 'x';
+        else rc='x';
+      } else if(r.elimMath){ rc='x'; }        // mathematically out, even mid-group
+      else if(r.clinchTop2){ rc='q'; }        // already guaranteed top 2
+      else if(r.pos<=2) rc='q';
+      else if(r.pos===3) rc='t3';
+      else rc='';
       const own = ownerOf(r.team);
       return `<tr class="${rc}">
         <td class="pos">${r.pos}</td>
