@@ -187,6 +187,31 @@
   .globelegend .lg.activeName { color:var(--txt); font-weight:700; }
   .globelegend .swatch { width:11px; height:11px; border-radius:50%; display:inline-block; box-shadow:0 0 0 1px rgba(255,255,255,.15); }
 
+  /* beers */
+  .beerhead { text-align:center; margin:16px 0 6px; }
+  .beerhead .total { font-size:40px; font-weight:800; line-height:1; }
+  .beerhead .total small { font-size:16px; color:var(--muted); font-weight:600; }
+  .beerhead .sub { color:var(--muted); font-size:12.5px; margin-top:4px; }
+  .beersync { text-align:center; font-size:11.5px; margin:6px 0 2px; }
+  .beersync.local { color:var(--warn); }
+  .beersync.live  { color:var(--in); }
+  .beerchart { display:grid; gap:9px; margin-top:14px; }
+  .brow { display:grid; grid-template-columns:22px 1fr auto; align-items:center; gap:9px;
+    background:var(--card); border:1px solid var(--line); border-radius:13px; padding:9px 11px; }
+  .brow.lead { border-color:var(--champ); box-shadow:0 0 0 1px var(--champ) inset; }
+  .brow .brank { color:var(--muted); font-weight:700; font-size:13px; text-align:center; }
+  .bmain { min-width:0; }
+  .bname { font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .bname .cnt { color:var(--muted); font-weight:700; font-size:13px; }
+  .btrack { height:12px; background:var(--bg2); border-radius:999px; overflow:hidden; }
+  .bfill { height:100%; width:0; border-radius:999px; transition:width .7s cubic-bezier(.22,1,.36,1); min-width:3px; }
+  .bctl { display:flex; align-items:center; gap:6px; }
+  .bbtn { border:0; border-radius:999px; cursor:pointer; font-weight:800; }
+  .bbtn.add { background:linear-gradient(135deg,#ffb347,#ff8c42); color:#2a1500; font-size:13px; padding:9px 12px; white-space:nowrap; }
+  .bbtn.add:active { transform:scale(.95); }
+  .bbtn.sub { background:var(--bg2); color:var(--muted); border:1px solid var(--line); width:30px; height:30px; font-size:16px; line-height:1; }
+  .beerfoot { text-align:center; color:var(--muted); font-size:12px; margin-top:14px; }
+
   /* scoreboard */
   .scoregroup { margin-top:14px; }
   .scoregroup > h2 { font-size:12.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:0 0 8px; }
@@ -234,6 +259,7 @@
     <button id="tabGroups" onclick="showView('groups')">📊 Groups</button>
     <button id="tabScores" onclick="showView('scores')">⚽ Scores</button>
     <button id="tabGlobe" onclick="showView('globe')">🌍 Globe</button>
+    <button id="tabBeers" onclick="showView('beers')">🍺 Beers</button>
   </div>
 
   <div id="playersView">
@@ -257,6 +283,7 @@
     <div id="globeTip" class="globetip" style="display:none"></div>
     <div id="globeLegend" class="globelegend"></div>
   </div>
+  <div id="beersView" style="display:none"><div class="skeleton">Pouring…</div></div>
 
   <footer>
     Auto-refreshes every couple of minutes. Pull down / tap <b>Refresh</b> for the latest.<br/>
@@ -625,11 +652,14 @@ function showView(v){
   $('groupsView').style.display  = v==='groups'  ? '' : 'none';
   $('scoresView').style.display  = v==='scores'  ? '' : 'none';
   $('globeView').style.display   = v==='globe'   ? '' : 'none';
+  $('beersView').style.display   = v==='beers'   ? '' : 'none';
   $('tabPlayers').classList.toggle('active', v==='players');
   $('tabGroups').classList.toggle('active', v==='groups');
   $('tabScores').classList.toggle('active', v==='scores');
   $('tabGlobe').classList.toggle('active', v==='globe');
+  $('tabBeers').classList.toggle('active', v==='beers');
   if(v==='globe') ensureGlobe();
+  if(v==='beers') enterBeers();
 }
 
 /* ---------------- 3D globe view --------------------------------------- */
@@ -805,6 +835,102 @@ function showGlobeTip(d){
               : d.cls==='risk' ? '⚠ On the brink' : 'Still in');
   tip.style.display = '';
   tip.innerHTML = `<b>${esc(d.team)}</b> — <span class="o">${esc(d.owner)}</span><br>${esc(state)} · ${esc(d.label)}`;
+}
+
+/* ---------------- 🍺 beer counter ------------------------------------- */
+/* Shared backend: paste your Google Apps Script web-app URL here (see
+   BEER_SETUP.md). Leave "" to run in per-device (localStorage) mode. */
+const BEER_API = "";
+
+let BEERS = {};                 // { name: count }
+let beersLoaded = false, beerPoll = null, beerBusy = false;
+const beerKey = 'cesspool_beers_v1';
+
+function beerNames(){ return POOL.players.map(p => p.name); }
+function loadLocalBeers(){ try { return JSON.parse(localStorage.getItem(beerKey)) || {}; } catch(e){ return {}; } }
+function saveLocalBeers(){ try { localStorage.setItem(beerKey, JSON.stringify(BEERS)); } catch(e){} }
+function normalizeBeers(obj){
+  const out = {}; beerNames().forEach(n => out[n] = Math.max(0, Number(obj && obj[n]) || 0)); return out;
+}
+
+async function apiBeers(payload){
+  // one mechanism for read + write: text/plain POST (no CORS preflight)
+  const res = await fetch(BEER_API, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload || {})
+  });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  return normalizeBeers(data.beers || {});
+}
+
+function setBeerSync(){
+  const el = $('beerSync'); if(!el) return;
+  if(BEER_API){ el.className = 'beersync live';  el.textContent = '🟢 Synced for everyone — live'; }
+  else        { el.className = 'beersync local'; el.textContent = '🟠 This phone only — add a backend (BEER_SETUP.md) to share with friends'; }
+}
+
+async function enterBeers(){
+  if(!beersLoaded){
+    BEERS = normalizeBeers(loadLocalBeers());
+    renderBeers();
+    if(BEER_API){ try { BEERS = await apiBeers({ action:'read' }); saveLocalBeers(); renderBeers(); } catch(e){} }
+    beersLoaded = true;
+  } else { renderBeers(); }
+  if(BEER_API && !beerPoll){
+    beerPoll = setInterval(async () => {
+      if($('beersView').style.display === 'none') return;
+      try { BEERS = await apiBeers({ action:'read' }); saveLocalBeers(); renderBeers(); } catch(e){}
+    }, 20000);
+  }
+}
+
+async function beerMe(name, delta){
+  // optimistic update
+  BEERS[name] = Math.max(0, (Number(BEERS[name]) || 0) + delta);
+  renderBeers();
+  saveLocalBeers();
+  if(BEER_API){
+    try { BEERS = await apiBeers({ action:'add', name, delta }); saveLocalBeers(); renderBeers(); }
+    catch(e){ /* keep optimistic local value; next poll reconciles */ }
+  }
+}
+
+function renderBeers(){
+  const rows = beerNames().map(n => ({ name:n, count: Number(BEERS[n]) || 0 }));
+  const total = rows.reduce((s,r) => s + r.count, 0);
+  const max = Math.max(1, ...rows.map(r => r.count));
+  rows.sort((a,b) => (b.count - a.count) || a.name.localeCompare(b.name));
+  const leader = rows[0] && rows[0].count > 0 ? rows[0].count : -1;
+
+  const head = `
+    <div class="beerhead">
+      <div class="total">🍺 ${total} <small>beer${total===1?'':'s'}</small></div>
+      <div class="sub">${total ? 'cracked open during the tournament' : 'nobody’s cracked one yet — be the first 🍻'}</div>
+    </div>
+    <div class="beersync" id="beerSync"></div>`;
+
+  const chart = rows.map((r,i) => {
+    const col = ownerColor[r.name] || '#ffb347';
+    const pct = Math.round(r.count / max * 100);
+    const lead = (r.count === leader && r.count > 0) ? ' lead' : '';
+    const crown = (r.count === leader && r.count > 0) ? '👑 ' : '';
+    return `<div class="brow${lead}">
+      <div class="brank">${i+1}</div>
+      <div class="bmain">
+        <div class="bname">${crown}${esc(r.name)} <span class="cnt">${r.count}🍺</span></div>
+        <div class="btrack"><div class="bfill" style="width:${pct}%;background:${col}"></div></div>
+      </div>
+      <div class="bctl">
+        <button class="bbtn sub" onclick="beerMe('${r.name.replace(/'/g,"\\'")}',-1)" aria-label="undo">−</button>
+        <button class="bbtn add" onclick="beerMe('${r.name.replace(/'/g,"\\'")}',1)">🍺 Beer Me</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  $('beersView').innerHTML = head + `<div class="beerchart">${chart}</div>`
+    + `<div class="beerfoot">Tap <b>🍺 Beer Me</b> on your name each time you crack one. Hit <b>−</b> to fix a mis-tap.${BEER_API ? '' : '<br>Counts are saved on this device only until a shared backend is set up.'}</div>`;
+  setBeerSync();
 }
 
 function todayISO(){
