@@ -167,6 +167,26 @@
   table.st .own { display:block; font-size:10.5px; font-weight:600; color:#8fb6ff; }
   table.st td.pos { width:18px; text-align:center; }
 
+  /* globe */
+  .globebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 8px; }
+  #globePick { background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:999px;
+    padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer; -webkit-appearance:none; appearance:none; }
+  .globehint { font-size:11.5px; color:var(--muted); margin:2px 2px 0; }
+  .ctoggle { display:inline-flex; gap:3px; background:var(--bg2); border:1px solid var(--line); border-radius:999px; padding:3px; }
+  .ctoggle button { background:transparent; color:var(--muted); border:0; border-radius:999px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .ctoggle button.active { background:var(--card); color:var(--txt); }
+  #globeWrap { position:relative; width:100%; height:min(62vh, 540px); background:#05070f;
+    border:1px solid var(--line); border-radius:16px; overflow:hidden; touch-action:none; }
+  #globeWrap canvas { display:block; }
+  #globeMsg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center; }
+  .globetip { margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 13px; font-size:13.5px; }
+  .globetip b { font-size:15px; }
+  .globetip .o { color:#8fb6ff; font-weight:700; }
+  .globelegend { display:flex; flex-wrap:wrap; gap:7px 12px; margin-top:12px; }
+  .globelegend .lg { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); cursor:pointer; }
+  .globelegend .lg.activeName { color:var(--txt); font-weight:700; }
+  .globelegend .swatch { width:11px; height:11px; border-radius:50%; display:inline-block; box-shadow:0 0 0 1px rgba(255,255,255,.15); }
+
   /* scoreboard */
   .scoregroup { margin-top:14px; }
   .scoregroup > h2 { font-size:12.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:0 0 8px; }
@@ -213,6 +233,7 @@
     <button id="tabPlayers" class="active" onclick="showView('players')">🏆 Pool</button>
     <button id="tabGroups" onclick="showView('groups')">📊 Groups</button>
     <button id="tabScores" onclick="showView('scores')">⚽ Scores</button>
+    <button id="tabGlobe" onclick="showView('globe')">🌍 Globe</button>
   </div>
 
   <div id="playersView">
@@ -221,6 +242,21 @@
   </div>
   <div id="groupsView" style="display:none"><div class="skeleton">Building the tables…</div></div>
   <div id="scoresView" style="display:none"><div class="skeleton">Loading fixtures…</div></div>
+  <div id="globeView" style="display:none">
+    <div class="globebar">
+      <select id="globePick" onchange="setGlobeFilter(this.value)">
+        <option value="All">🌐 Everyone's teams</option>
+      </select>
+      <div class="ctoggle">
+        <button id="cmOwner" class="active" onclick="setColorMode('owner')">By person</button>
+        <button id="cmStatus" onclick="setColorMode('status')">By status</button>
+      </div>
+    </div>
+    <div class="globehint">drag to spin · pinch/scroll to zoom · tap a pin</div>
+    <div id="globeWrap"><div class="skeleton" id="globeMsg">Loading the globe…</div></div>
+    <div id="globeTip" class="globetip" style="display:none"></div>
+    <div id="globeLegend" class="globelegend"></div>
+  </div>
 
   <footer>
     Auto-refreshes every couple of minutes. Pull down / tap <b>Refresh</b> for the latest.<br/>
@@ -524,6 +560,7 @@ function render(data){
   }).join('') + '</div>';
 
   renderGroups(ctx);
+  buildGlobeData(rows);
 }
 
 /* ---------------- groups (standings) view ----------------------------- */
@@ -587,9 +624,187 @@ function showView(v){
   $('playersView').style.display = v==='players' ? '' : 'none';
   $('groupsView').style.display  = v==='groups'  ? '' : 'none';
   $('scoresView').style.display  = v==='scores'  ? '' : 'none';
+  $('globeView').style.display   = v==='globe'   ? '' : 'none';
   $('tabPlayers').classList.toggle('active', v==='players');
   $('tabGroups').classList.toggle('active', v==='groups');
   $('tabScores').classList.toggle('active', v==='scores');
+  $('tabGlobe').classList.toggle('active', v==='globe');
+  if(v==='globe') ensureGlobe();
+}
+
+/* ---------------- 3D globe view --------------------------------------- */
+/* approximate lat/lng (capital city) for every country in the pool */
+const COORDS = {
+  'Spain':[40.42,-3.70], 'Jordan':[31.95,35.93], 'Scotland':[55.95,-3.19], 'Canada':[45.42,-75.70],
+  'France':[48.85,2.35], 'Curaçao':[12.11,-68.93], 'Austria':[48.21,16.37], 'Czech Republic':[50.08,14.44],
+  'England':[51.51,-0.13], 'Haiti':[18.59,-72.31], 'Sweden':[59.33,18.07], 'Ivory Coast':[5.36,-4.01],
+  'Portugal':[38.72,-9.14], 'Iraq':[33.31,44.36], 'Senegal':[14.69,-17.45], 'Ghana':[5.60,-0.19],
+  'Brazil':[-15.79,-47.88], 'New Zealand':[-41.29,174.78], 'Croatia':[45.81,15.98], 'Egypt':[30.04,31.24],
+  'Argentina':[-34.60,-58.38], 'Qatar':[25.29,51.53], 'Turkey':[39.93,32.86], 'Paraguay':[-25.30,-57.64],
+  'Germany':[52.52,13.40], 'Uzbekistan':[41.31,69.24], 'Ecuador':[-0.18,-78.47], 'Algeria':[36.75,3.06],
+  'Netherlands':[52.37,4.90], 'Panama':[8.98,-79.52], 'Uruguay':[-34.90,-56.16], 'South Korea':[37.57,126.98],
+  'Norway':[59.91,10.75], 'Saudi Arabia':[24.71,46.68], 'Mexico':[19.43,-99.13], 'Tunisia':[36.81,10.18],
+  'Colombia':[4.71,-74.07], 'Cape Verde':[14.93,-23.51], 'Switzerland':[46.95,7.45], 'Bosnia':[43.85,18.36],
+  'Belgium':[50.85,4.35], 'South Africa':[-25.75,28.19], 'USA':[38.91,-77.04], 'Australia':[-35.28,149.13],
+  'Morocco':[34.02,-6.83], 'DR Congo':[-4.32,15.31], 'Japan':[35.68,139.69], 'Iran':[35.69,51.39]
+};
+const OWNER_COLORS = ['#ff5c6c','#2ecc71','#3aa0ff','#ffd23f','#b06cff','#ff8c42','#19d3c5','#ff6fb5',
+                      '#9acd32','#5fa8ff','#ffa600','#7ee787'];
+const ownerColor = {};
+POOL.players.forEach((p,i)=> ownerColor[p.name] = OWNER_COLORS[i % OWNER_COLORS.length]);
+
+/* flag emoji per country */
+const FLAGS = {
+  'Spain':'🇪🇸','Jordan':'🇯🇴','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Canada':'🇨🇦','France':'🇫🇷','Curaçao':'🇨🇼','Austria':'🇦🇹',
+  'Czech Republic':'🇨🇿','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Haiti':'🇭🇹','Sweden':'🇸🇪','Ivory Coast':'🇨🇮','Portugal':'🇵🇹',
+  'Iraq':'🇮🇶','Senegal':'🇸🇳','Ghana':'🇬🇭','Brazil':'🇧🇷','New Zealand':'🇳🇿','Croatia':'🇭🇷','Egypt':'🇪🇬',
+  'Argentina':'🇦🇷','Qatar':'🇶🇦','Turkey':'🇹🇷','Paraguay':'🇵🇾','Germany':'🇩🇪','Uzbekistan':'🇺🇿','Ecuador':'🇪🇨',
+  'Algeria':'🇩🇿','Netherlands':'🇳🇱','Panama':'🇵🇦','Uruguay':'🇺🇾','South Korea':'🇰🇷','Norway':'🇳🇴',
+  'Saudi Arabia':'🇸🇦','Mexico':'🇲🇽','Tunisia':'🇹🇳','Colombia':'🇨🇴','Cape Verde':'🇨🇻','Switzerland':'🇨🇭',
+  'Bosnia':'🇧🇦','Belgium':'🇧🇪','South Africa':'🇿🇦','USA':'🇺🇸','Australia':'🇦🇺','Morocco':'🇲🇦',
+  'DR Congo':'🇨🇩','Japan':'🇯🇵','Iran':'🇮🇷'
+};
+function flagFor(team){ return FLAGS[team] || '⚽'; }
+
+/* colour a pin by its team's tournament status */
+const STATUS_COLORS = { champ:'#ffd23f', thru:'#3aa0ff', in:'#2ecc71', risk:'#ffb347', out:'#ff5c6c' };
+function statusColor(cls){ return STATUS_COLORS[cls] || '#2ecc71'; }
+function pinColor(d){ return colorMode==='status' ? statusColor(d.cls) : d.color; }
+
+let GLOBE_DATA = [];          // [{team, owner, lat, lng, alive, cls, label, color}]
+let globe = null, globeLoading = false, globeReady = false, globeFilter = 'All', colorMode = 'owner';
+
+function buildGlobeData(rows){
+  const out = [];
+  for(const r of rows){
+    for(const t of r.teams){
+      const c = COORDS[t.name];
+      if(!c) continue;                       // skip if we don't have coordinates
+      out.push({
+        team: t.name, owner: r.name, lat: c[0], lng: c[1],
+        alive: t.status !== 'Eliminated', cls: t.cls,
+        label: t.label, color: ownerColor[r.name] || '#ffffff'
+      });
+    }
+  }
+  GLOBE_DATA = out;
+  populateGlobeChrome();
+  if(globeReady) updateGlobe();
+}
+
+function populateGlobeChrome(){
+  const sel = $('globePick');
+  if(sel && sel.options.length <= 1){
+    POOL.players.map(p=>p.name).sort().forEach(n=>{
+      const o = document.createElement('option'); o.value=n; o.textContent='👤 '+n+"'s teams"; sel.appendChild(o);
+    });
+  }
+  const legend = $('globeLegend');
+  if(legend){
+    if(colorMode==='status'){
+      const items = [['#2ecc71','Still in'],['#3aa0ff','Through to R32'],['#ffb347','On the brink'],['#ffd23f','Champion']];
+      legend.innerHTML = items.map(([c,t])=>`<span class="lg"><i class="swatch" style="background:${c}"></i>${t}</span>`).join('');
+    } else {
+      legend.innerHTML = POOL.players.map(p=>{
+        const act = globeFilter===p.name ? ' activeName' : '';
+        return `<span class="lg${act}" onclick="setGlobeFilter('${p.name.replace(/'/g,"\\'")}')">`
+             + `<i class="swatch" style="background:${ownerColor[p.name]}"></i>${esc(p.name)}</span>`;
+      }).join('');
+    }
+  }
+}
+
+function setGlobeFilter(name){
+  globeFilter = name;
+  const sel = $('globePick'); if(sel) sel.value = name;
+  populateGlobeChrome();
+  $('globeTip').style.display = 'none';
+  if(globeReady) updateGlobe();
+}
+
+function setColorMode(m){
+  colorMode = m;
+  $('cmOwner').classList.toggle('active', m==='owner');
+  $('cmStatus').classList.toggle('active', m==='status');
+  populateGlobeChrome();
+  if(globeReady) updateGlobe();
+}
+
+function globePoints(){
+  // only living teams sit on the globe; eliminated ones fall away (exit transition)
+  let pts = GLOBE_DATA.filter(d => d.alive);
+  if(globeFilter !== 'All') pts = pts.filter(d => d.owner === globeFilter);
+  return pts;
+}
+
+function ensureGlobe(){
+  if(globeReady){ updateGlobe(); return; }
+  if(globeLoading) return;
+  if(typeof Globe !== 'undefined'){ initGlobe(); return; }
+  globeLoading = true;
+  $('globeMsg').textContent = 'Loading the globe…';
+  const s = document.createElement('script');
+  s.src = 'https://unpkg.com/globe.gl';
+  s.onload = () => { globeLoading = false; initGlobe(); };
+  s.onerror = () => { globeLoading = false;
+    $('globeMsg').innerHTML = 'Couldn’t load the 3D globe library (needs internet). The other tabs still work.'; };
+  document.head.appendChild(s);
+}
+
+function initGlobe(){
+  if(globeReady || typeof Globe === 'undefined') return;
+  const wrap = $('globeWrap');
+  $('globeMsg').style.display = 'none';
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  globe = Globe()(wrap)
+    .width(W).height(H)
+    .backgroundColor('rgba(0,0,0,0)')
+    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+    .pointLat('lat').pointLng('lng')
+    .pointColor(pinColor)
+    .pointAltitude(0.07)
+    .pointRadius(0.42)
+    .pointsMerge(false)
+    .pointsTransitionDuration(1400)
+    .pointLabel(d => `<div style="font:600 12px sans-serif;color:#fff;background:#111a;padding:4px 7px;border-radius:6px">
+        ${flagFor(d.team)} ${esc(d.team)} · <span style="color:#8fb6ff">${esc(d.owner)}</span><br>${esc(d.label)}</div>`)
+    .onPointClick(d => showGlobeTip(d))
+    .labelLat('lat').labelLng('lng')
+    .labelText(d => flagFor(d.team) + (globeFilter==='All' ? '' : ' '+d.team))
+    .labelColor(pinColor)
+    .labelSize(d => globeFilter==='All' ? 0.9 : 1.1)
+    .labelDotRadius(0.01)
+    .labelAltitude(0.075)
+    .labelResolution(2)
+    .labelsTransitionDuration(800)
+    .onLabelClick(d => showGlobeTip(d));
+  globe.controls().autoRotate = true;
+  globe.controls().autoRotateSpeed = 0.7;
+  globe.controls().enableZoom = true;
+  globeReady = true;
+  updateGlobe();
+  window.addEventListener('resize', resizeGlobe);
+}
+
+function resizeGlobe(){
+  if(!globeReady) return;
+  const wrap = $('globeWrap');
+  if(wrap.clientWidth) globe.width(wrap.clientWidth).height(wrap.clientHeight);
+}
+
+function updateGlobe(){
+  if(!globeReady) return;
+  const pts = globePoints();
+  globe.pointsData(pts).labelsData(pts);   // flags (labels) sit on every living pin
+}
+
+function showGlobeTip(d){
+  const tip = $('globeTip');
+  const state = d.cls==='champ' ? '🏆 Champion' : (d.cls==='thru' ? 'Through to R32'
+              : d.cls==='risk' ? '⚠ On the brink' : 'Still in');
+  tip.style.display = '';
+  tip.innerHTML = `<b>${esc(d.team)}</b> — <span class="o">${esc(d.owner)}</span><br>${esc(state)} · ${esc(d.label)}`;
 }
 
 function todayISO(){
