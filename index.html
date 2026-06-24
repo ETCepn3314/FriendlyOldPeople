@@ -171,7 +171,10 @@
   .globebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 8px; }
   #globePick { background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:999px;
     padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer; -webkit-appearance:none; appearance:none; }
-  .globehint { font-size:11.5px; color:var(--muted); flex:1 1 auto; }
+  .globehint { font-size:11.5px; color:var(--muted); margin:2px 2px 0; }
+  .ctoggle { display:inline-flex; gap:3px; background:var(--bg2); border:1px solid var(--line); border-radius:999px; padding:3px; }
+  .ctoggle button { background:transparent; color:var(--muted); border:0; border-radius:999px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .ctoggle button.active { background:var(--card); color:var(--txt); }
   #globeWrap { position:relative; width:100%; height:min(62vh, 540px); background:#05070f;
     border:1px solid var(--line); border-radius:16px; overflow:hidden; touch-action:none; }
   #globeWrap canvas { display:block; }
@@ -244,8 +247,12 @@
       <select id="globePick" onchange="setGlobeFilter(this.value)">
         <option value="All">🌐 Everyone's teams</option>
       </select>
-      <span class="globehint">drag to spin · pinch/scroll to zoom · tap a pin</span>
+      <div class="ctoggle">
+        <button id="cmOwner" class="active" onclick="setColorMode('owner')">By person</button>
+        <button id="cmStatus" onclick="setColorMode('status')">By status</button>
+      </div>
     </div>
+    <div class="globehint">drag to spin · pinch/scroll to zoom · tap a pin</div>
     <div id="globeWrap"><div class="skeleton" id="globeMsg">Loading the globe…</div></div>
     <div id="globeTip" class="globetip" style="display:none"></div>
     <div id="globeLegend" class="globelegend"></div>
@@ -646,8 +653,26 @@ const OWNER_COLORS = ['#ff5c6c','#2ecc71','#3aa0ff','#ffd23f','#b06cff','#ff8c42
 const ownerColor = {};
 POOL.players.forEach((p,i)=> ownerColor[p.name] = OWNER_COLORS[i % OWNER_COLORS.length]);
 
+/* flag emoji per country */
+const FLAGS = {
+  'Spain':'🇪🇸','Jordan':'🇯🇴','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Canada':'🇨🇦','France':'🇫🇷','Curaçao':'🇨🇼','Austria':'🇦🇹',
+  'Czech Republic':'🇨🇿','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Haiti':'🇭🇹','Sweden':'🇸🇪','Ivory Coast':'🇨🇮','Portugal':'🇵🇹',
+  'Iraq':'🇮🇶','Senegal':'🇸🇳','Ghana':'🇬🇭','Brazil':'🇧🇷','New Zealand':'🇳🇿','Croatia':'🇭🇷','Egypt':'🇪🇬',
+  'Argentina':'🇦🇷','Qatar':'🇶🇦','Turkey':'🇹🇷','Paraguay':'🇵🇾','Germany':'🇩🇪','Uzbekistan':'🇺🇿','Ecuador':'🇪🇨',
+  'Algeria':'🇩🇿','Netherlands':'🇳🇱','Panama':'🇵🇦','Uruguay':'🇺🇾','South Korea':'🇰🇷','Norway':'🇳🇴',
+  'Saudi Arabia':'🇸🇦','Mexico':'🇲🇽','Tunisia':'🇹🇳','Colombia':'🇨🇴','Cape Verde':'🇨🇻','Switzerland':'🇨🇭',
+  'Bosnia':'🇧🇦','Belgium':'🇧🇪','South Africa':'🇿🇦','USA':'🇺🇸','Australia':'🇦🇺','Morocco':'🇲🇦',
+  'DR Congo':'🇨🇩','Japan':'🇯🇵','Iran':'🇮🇷'
+};
+function flagFor(team){ return FLAGS[team] || '⚽'; }
+
+/* colour a pin by its team's tournament status */
+const STATUS_COLORS = { champ:'#ffd23f', thru:'#3aa0ff', in:'#2ecc71', risk:'#ffb347', out:'#ff5c6c' };
+function statusColor(cls){ return STATUS_COLORS[cls] || '#2ecc71'; }
+function pinColor(d){ return colorMode==='status' ? statusColor(d.cls) : d.color; }
+
 let GLOBE_DATA = [];          // [{team, owner, lat, lng, alive, cls, label, color}]
-let globe = null, globeLoading = false, globeReady = false, globeFilter = 'All';
+let globe = null, globeLoading = false, globeReady = false, globeFilter = 'All', colorMode = 'owner';
 
 function buildGlobeData(rows){
   const out = [];
@@ -676,11 +701,16 @@ function populateGlobeChrome(){
   }
   const legend = $('globeLegend');
   if(legend){
-    legend.innerHTML = POOL.players.map(p=>{
-      const act = globeFilter===p.name ? ' activeName' : '';
-      return `<span class="lg${act}" onclick="setGlobeFilter('${p.name.replace(/'/g,"\\'")}')">`
-           + `<i class="swatch" style="background:${ownerColor[p.name]}"></i>${esc(p.name)}</span>`;
-    }).join('');
+    if(colorMode==='status'){
+      const items = [['#2ecc71','Still in'],['#3aa0ff','Through to R32'],['#ffb347','On the brink'],['#ffd23f','Champion']];
+      legend.innerHTML = items.map(([c,t])=>`<span class="lg"><i class="swatch" style="background:${c}"></i>${t}</span>`).join('');
+    } else {
+      legend.innerHTML = POOL.players.map(p=>{
+        const act = globeFilter===p.name ? ' activeName' : '';
+        return `<span class="lg${act}" onclick="setGlobeFilter('${p.name.replace(/'/g,"\\'")}')">`
+             + `<i class="swatch" style="background:${ownerColor[p.name]}"></i>${esc(p.name)}</span>`;
+      }).join('');
+    }
   }
 }
 
@@ -689,6 +719,14 @@ function setGlobeFilter(name){
   const sel = $('globePick'); if(sel) sel.value = name;
   populateGlobeChrome();
   $('globeTip').style.display = 'none';
+  if(globeReady) updateGlobe();
+}
+
+function setColorMode(m){
+  colorMode = m;
+  $('cmOwner').classList.toggle('active', m==='owner');
+  $('cmStatus').classList.toggle('active', m==='status');
+  populateGlobeChrome();
   if(globeReady) updateGlobe();
 }
 
@@ -724,14 +762,23 @@ function initGlobe(){
     .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
     .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
     .pointLat('lat').pointLng('lng')
-    .pointColor('color')
+    .pointColor(pinColor)
     .pointAltitude(0.07)
     .pointRadius(0.42)
     .pointsMerge(false)
     .pointsTransitionDuration(1400)
     .pointLabel(d => `<div style="font:600 12px sans-serif;color:#fff;background:#111a;padding:4px 7px;border-radius:6px">
-        ${esc(d.team)} · <span style="color:#8fb6ff">${esc(d.owner)}</span><br>${esc(d.label)}</div>`)
-    .onPointClick(d => showGlobeTip(d));
+        ${flagFor(d.team)} ${esc(d.team)} · <span style="color:#8fb6ff">${esc(d.owner)}</span><br>${esc(d.label)}</div>`)
+    .onPointClick(d => showGlobeTip(d))
+    .labelLat('lat').labelLng('lng')
+    .labelText(d => flagFor(d.team) + (globeFilter==='All' ? '' : ' '+d.team))
+    .labelColor(pinColor)
+    .labelSize(d => globeFilter==='All' ? 0.9 : 1.1)
+    .labelDotRadius(0.01)
+    .labelAltitude(0.075)
+    .labelResolution(2)
+    .labelsTransitionDuration(800)
+    .onLabelClick(d => showGlobeTip(d));
   globe.controls().autoRotate = true;
   globe.controls().autoRotateSpeed = 0.7;
   globe.controls().enableZoom = true;
@@ -748,11 +795,8 @@ function resizeGlobe(){
 
 function updateGlobe(){
   if(!globeReady) return;
-  globe.pointsData(globePoints())
-       .labelsData(globeFilter==='All' ? [] : globePoints())
-       .labelLat('lat').labelLng('lng').labelText('team')
-       .labelColor(d=>d.color).labelSize(1.1).labelDotRadius(0.3).labelAltitude(0.08)
-       .labelResolution(2);
+  const pts = globePoints();
+  globe.pointsData(pts).labelsData(pts);   // flags (labels) sit on every living pin
 }
 
 function showGlobeTip(d){
