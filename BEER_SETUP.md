@@ -1,43 +1,59 @@
-# 🍺 Beer counter — shared setup (one time, ~5 min)
+# 🍻 Drinks counter — shared setup (one time, ~5 min)
 
-The dashboard's **Beers** tab works right away, but until you do this it only
-saves counts **on each phone**. Follow these steps once to make the counts
-**shared** so everyone sees the same totals live.
+The dashboard's **Drinks** tab (🍺 Beers / 🥃 Shots / 🍷 Winos) works right away,
+but until you do this it only saves counts **on each phone**. Follow these steps
+once to make the counts **shared** so everyone sees the same totals live.
 
 We use a free **Google Sheet + Apps Script** as the tiny backend.
 
 ## 1. Create the sheet
 1. Go to <https://sheets.new> (creates a new Google Sheet).
-2. Name it anything, e.g. **Cesspool Beers**.
+2. Name it anything, e.g. **Cesspool Drinks**.
 
 ## 2. Add the script
 1. In that sheet: **Extensions → Apps Script**.
 2. Delete whatever code is there and paste **all** of this:
 
 ```javascript
-// Cesspool beer counter backend
+// Cesspool drinks counter backend (beer / shot / wine)
+var TYPES = ['beer', 'shot', 'wine'];
+
 function getSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName('Beers');
-  if (!sh) { sh = ss.insertSheet('Beers'); sh.appendRow(['name', 'count']); }
+  let sh = ss.getSheetByName('Drinks');
+  if (!sh) {
+    sh = ss.insertSheet('Drinks');
+    sh.appendRow(['name', 'beer', 'shot', 'wine']);
+    // carry over counts if you previously used the beer-only 'Beers' sheet
+    const old = ss.getSheetByName('Beers');
+    if (old) {
+      const r = old.getDataRange().getValues();
+      for (let i = 1; i < r.length; i++) if (r[i][0]) sh.appendRow([r[i][0], Number(r[i][1]) || 0, 0, 0]);
+    }
+  }
   return sh;
 }
 function readAll() {
   const rows = getSheet().getDataRange().getValues();
   const out = {};
-  for (let i = 1; i < rows.length; i++) if (rows[i][0]) out[rows[i][0]] = Number(rows[i][1]) || 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    out[rows[i][0]] = { beer: Number(rows[i][1]) || 0, shot: Number(rows[i][2]) || 0, wine: Number(rows[i][3]) || 0 };
+  }
   return out;
 }
 function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
-function doGet() { return json({ ok: true, beers: readAll() }); }
+function doGet() { return json({ ok: true, drinks: readAll() }); }
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(5000);
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const type = TYPES.indexOf(body.type) !== -1 ? body.type : 'beer';
+    const col = TYPES.indexOf(type) + 2; // beer=2, shot=3, wine=4
     if (body.action === 'add' && body.name) {
       const sh = getSheet();
       const rows = sh.getDataRange().getValues();
@@ -45,13 +61,17 @@ function doPost(e) {
       let found = false;
       for (let i = 1; i < rows.length; i++) {
         if (rows[i][0] === body.name) {
-          sh.getRange(i + 1, 2).setValue(Math.max(0, (Number(rows[i][1]) || 0) + delta));
+          sh.getRange(i + 1, col).setValue(Math.max(0, (Number(rows[i][col - 1]) || 0) + delta));
           found = true; break;
         }
       }
-      if (!found) sh.appendRow([body.name, Math.max(0, delta)]);
+      if (!found) {
+        const row = [body.name, 0, 0, 0];
+        row[col - 1] = Math.max(0, delta);
+        sh.appendRow(row);
+      }
     }
-    return json({ ok: true, beers: readAll() });
+    return json({ ok: true, drinks: readAll() });
   } finally {
     lock.releaseLock();
   }
@@ -72,7 +92,7 @@ function doPost(e) {
 
 ## 4. Paste the URL into the site
 1. Open `index.html` in the repo.
-2. Find this line near the beer code:
+2. Find this line near the drinks code:
    ```javascript
    const BEER_API = "";
    ```
@@ -82,12 +102,15 @@ function doPost(e) {
    ```
 4. Commit/push to `main` (or just ask me — paste me the URL and I'll wire it in).
 
-That's it. The Beers tab will switch from "🟠 this phone only" to
-"🟢 Synced for everyone — live", and every tap of **Beer Me** updates the
+That's it. The Drinks tab will switch from "🟠 this phone only" to
+"🟢 Synced for everyone — live", and every tap (🍺 / 🥃 / 🍷) updates the
 shared Google Sheet for all your friends.
 
 ### Notes
-- Anyone with the dashboard link can add a beer — fine for a friends' pool,
+- Anyone with the dashboard link can add a drink — fine for a friends' pool,
   no logins. The sheet only stores names + counts.
 - If you ever change the script, do **Deploy → Manage deployments → Edit → New version**
   so the same URL keeps working.
+- Already set up the older **beer-only** sheet? Just replace the script with the
+  one above and redeploy a **New version** — it adds the shot/wine columns
+  automatically and keeps your existing beer counts.
