@@ -211,6 +211,11 @@
   .bbtn.add:active { transform:scale(.95); }
   .bbtn.sub { background:var(--bg2); color:var(--muted); border:1px solid var(--line); width:30px; height:30px; font-size:16px; line-height:1; }
   .beerfoot { text-align:center; color:var(--muted); font-size:12px; margin-top:14px; }
+  .drinktabs { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--line); border-radius:999px; padding:4px; margin-top:14px; }
+  .drinktabs button { flex:1; background:transparent; color:var(--muted); border:0; border-radius:999px; padding:9px 4px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .drinktabs button.active { background:var(--card); color:var(--txt); box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  .drinktabs .dt { font-size:11px; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:0 6px; }
+  .drinktabs button.active .dt { color:var(--txt); }
 
   /* scoreboard */
   .scoregroup { margin-top:14px; }
@@ -259,7 +264,7 @@
     <button id="tabGroups" onclick="showView('groups')">📊 Groups</button>
     <button id="tabScores" onclick="showView('scores')">⚽ Scores</button>
     <button id="tabGlobe" onclick="showView('globe')">🌍 Globe</button>
-    <button id="tabBeers" onclick="showView('beers')">🍺 Beers</button>
+    <button id="tabBeers" onclick="showView('beers')">🍻 Drinks</button>
   </div>
 
   <div id="playersView">
@@ -837,23 +842,47 @@ function showGlobeTip(d){
   tip.innerHTML = `<b>${esc(d.team)}</b> — <span class="o">${esc(d.owner)}</span><br>${esc(state)} · ${esc(d.label)}`;
 }
 
-/* ---------------- 🍺 beer counter ------------------------------------- */
+/* ---------------- 🍻 drinks counter ----------------------------------- */
 /* Shared backend: paste your Google Apps Script web-app URL here (see
    BEER_SETUP.md). Leave "" to run in per-device (localStorage) mode. */
 const BEER_API = "https://script.google.com/macros/s/AKfycbxrX6wVbuRSTRWkv3W0V7vQ6KwCwceqDPjcjNn8BQxXKRMlKoB1ZybxMzKfzc6Bqba-/exec";
 
-let BEERS = {};                 // { name: count }
-let beersLoaded = false, beerPoll = null, beerBusy = false;
-const beerKey = 'cesspool_beers_v1';
+const DRINKS_META = [
+  { key:'beer', emoji:'🍺', label:'Beers', btn:'Beer Me', grad:'linear-gradient(135deg,#ffb347,#ff8c42)', ink:'#2a1500' },
+  { key:'shot', emoji:'🥃', label:'Shots', btn:'Shot!',   grad:'linear-gradient(135deg,#f5d06b,#c8962f)', ink:'#241900' },
+  { key:'wine', emoji:'🍷', label:'Winos', btn:'Wino!',   grad:'linear-gradient(135deg,#d05c7c,#7a1f3d)', ink:'#fff' }
+];
+let DRINKS = {};                // { name: { beer, shot, wine } }
+let drinkType = 'beer';         // active selector
+let drinksLoaded = false, drinkPoll = null;
+const drinkKey = 'cesspool_drinks_v1';
 
-function beerNames(){ return POOL.players.map(p => p.name); }
-function loadLocalBeers(){ try { return JSON.parse(localStorage.getItem(beerKey)) || {}; } catch(e){ return {}; } }
-function saveLocalBeers(){ try { localStorage.setItem(beerKey, JSON.stringify(BEERS)); } catch(e){} }
-function normalizeBeers(obj){
-  const out = {}; beerNames().forEach(n => out[n] = Math.max(0, Number(obj && obj[n]) || 0)); return out;
+function drinkNames(){ return POOL.players.map(p => p.name); }
+function emptyTally(){ return { beer:0, shot:0, wine:0 }; }
+function metaFor(k){ return DRINKS_META.find(d => d.key===k) || DRINKS_META[0]; }
+function loadLocalDrinks(){ try { return JSON.parse(localStorage.getItem(drinkKey)) || {}; } catch(e){ return {}; } }
+function saveLocalDrinks(){ try { localStorage.setItem(drinkKey, JSON.stringify(DRINKS)); } catch(e){} }
+function normalizeDrinks(obj){
+  const out = {};
+  drinkNames().forEach(n => {
+    const s = (obj && obj[n]) || {};
+    out[n] = { beer: Math.max(0, Number(s.beer)||0), shot: Math.max(0, Number(s.shot)||0), wine: Math.max(0, Number(s.wine)||0) };
+  });
+  return out;
+}
+// one-time migration from the old beer-only store
+function migrateOldBeers(){
+  try {
+    const old = JSON.parse(localStorage.getItem('cesspool_beers_v1'));
+    if(old && typeof old === 'object'){
+      drinkNames().forEach(n => { if(DRINKS[n]) DRINKS[n].beer = Math.max(DRINKS[n].beer, Number(old[n])||0); });
+      localStorage.removeItem('cesspool_beers_v1');
+      saveLocalDrinks();
+    }
+  } catch(e){}
 }
 
-async function apiBeers(payload){
+async function apiDrinks(payload){
   // one mechanism for read + write: text/plain POST (no CORS preflight)
   const res = await fetch(BEER_API, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -861,7 +890,7 @@ async function apiBeers(payload){
   });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
-  return normalizeBeers(data.beers || {});
+  return normalizeDrinks(data.drinks || {});
 }
 
 function setBeerSync(){
@@ -871,42 +900,56 @@ function setBeerSync(){
 }
 
 async function enterBeers(){
-  if(!beersLoaded){
-    BEERS = normalizeBeers(loadLocalBeers());
+  if(!drinksLoaded){
+    DRINKS = normalizeDrinks(loadLocalDrinks());
+    migrateOldBeers();
     renderBeers();
-    if(BEER_API){ try { BEERS = await apiBeers({ action:'read' }); saveLocalBeers(); renderBeers(); } catch(e){} }
-    beersLoaded = true;
+    if(BEER_API){ try { DRINKS = await apiDrinks({ action:'read' }); saveLocalDrinks(); renderBeers(); } catch(e){} }
+    drinksLoaded = true;
   } else { renderBeers(); }
-  if(BEER_API && !beerPoll){
-    beerPoll = setInterval(async () => {
+  if(BEER_API && !drinkPoll){
+    drinkPoll = setInterval(async () => {
       if($('beersView').style.display === 'none') return;
-      try { BEERS = await apiBeers({ action:'read' }); saveLocalBeers(); renderBeers(); } catch(e){}
+      try { DRINKS = await apiDrinks({ action:'read' }); saveLocalDrinks(); renderBeers(); } catch(e){}
     }, 20000);
   }
 }
 
-async function beerMe(name, delta){
-  // optimistic update
-  BEERS[name] = Math.max(0, (Number(BEERS[name]) || 0) + delta);
+function setDrinkType(t){ drinkType = t; renderBeers(); }
+
+async function drinkMe(name, type, delta){
+  if(!DRINKS[name]) DRINKS[name] = emptyTally();
+  DRINKS[name][type] = Math.max(0, (Number(DRINKS[name][type]) || 0) + delta);   // optimistic
   renderBeers();
-  saveLocalBeers();
+  saveLocalDrinks();
   if(BEER_API){
-    try { BEERS = await apiBeers({ action:'add', name, delta }); saveLocalBeers(); renderBeers(); }
+    try { DRINKS = await apiDrinks({ action:'add', name, type, delta }); saveLocalDrinks(); renderBeers(); }
     catch(e){ /* keep optimistic local value; next poll reconciles */ }
   }
 }
 
 function renderBeers(){
-  const rows = beerNames().map(n => ({ name:n, count: Number(BEERS[n]) || 0 }));
-  const total = rows.reduce((s,r) => s + r.count, 0);
+  const meta = metaFor(drinkType);
+  const rows = drinkNames().map(n => {
+    const t = DRINKS[n] || emptyTally();
+    return { name:n, t, count: Number(t[drinkType]) || 0 };
+  });
+  const grand = { beer:0, shot:0, wine:0 };
+  rows.forEach(r => { grand.beer += r.t.beer; grand.shot += r.t.shot; grand.wine += r.t.wine; });
+  const totalActive = rows.reduce((s,r) => s + r.count, 0);
+  const allTotal = grand.beer + grand.shot + grand.wine;
   const max = Math.max(1, ...rows.map(r => r.count));
   rows.sort((a,b) => (b.count - a.count) || a.name.localeCompare(b.name));
   const leader = rows[0] && rows[0].count > 0 ? rows[0].count : -1;
 
+  const tabs = `<div class="drinktabs">` + DRINKS_META.map(d =>
+    `<button class="${d.key===drinkType?'active':''}" onclick="setDrinkType('${d.key}')">${d.emoji} ${d.label} <span class="dt">${grand[d.key]}</span></button>`
+  ).join('') + `</div>`;
+
   const head = `
     <div class="beerhead">
-      <div class="total">🍺 ${total} <small>beer${total===1?'':'s'}</small></div>
-      <div class="sub">${total ? 'cracked open during the tournament' : 'nobody’s cracked one yet — be the first 🍻'}</div>
+      <div class="total">${meta.emoji} ${totalActive} <small>${meta.label.toLowerCase()}</small></div>
+      <div class="sub">${allTotal ? allTotal + ' drinks total · 🍺' + grand.beer + ' 🥃' + grand.shot + ' 🍷' + grand.wine : 'nobody’s had one yet — be the first 🍻'}</div>
     </div>
     <div class="beersync" id="beerSync"></div>`;
 
@@ -915,21 +958,23 @@ function renderBeers(){
     const pct = Math.round(r.count / max * 100);
     const lead = (r.count === leader && r.count > 0) ? ' lead' : '';
     const crown = (r.count === leader && r.count > 0) ? '👑 ' : '';
+    const tallies = `🍺${r.t.beer} 🥃${r.t.shot} 🍷${r.t.wine}`;
+    const nm = r.name.replace(/'/g,"\\'");
     return `<div class="brow${lead}">
       <div class="brank">${i+1}</div>
       <div class="bmain">
-        <div class="bname">${crown}${esc(r.name)} <span class="cnt">${r.count}🍺</span></div>
+        <div class="bname">${crown}${esc(r.name)} <span class="cnt">${tallies}</span></div>
         <div class="btrack"><div class="bfill" style="width:${pct}%;background:${col}"></div></div>
       </div>
       <div class="bctl">
-        <button class="bbtn sub" onclick="beerMe('${r.name.replace(/'/g,"\\'")}',-1)" aria-label="undo">−</button>
-        <button class="bbtn add" onclick="beerMe('${r.name.replace(/'/g,"\\'")}',1)">🍺 Beer Me</button>
+        <button class="bbtn sub" onclick="drinkMe('${nm}','${drinkType}',-1)" aria-label="undo">−</button>
+        <button class="bbtn add" style="background:${meta.grad};color:${meta.ink}" onclick="drinkMe('${nm}','${drinkType}',1)">${meta.emoji} ${meta.btn}</button>
       </div>
     </div>`;
   }).join('');
 
-  $('beersView').innerHTML = head + `<div class="beerchart">${chart}</div>`
-    + `<div class="beerfoot">Tap <b>🍺 Beer Me</b> on your name each time you crack one. Hit <b>−</b> to fix a mis-tap.${BEER_API ? '' : '<br>Counts are saved on this device only until a shared backend is set up.'}</div>`;
+  $('beersView').innerHTML = tabs + head + `<div class="beerchart">${chart}</div>`
+    + `<div class="beerfoot">Pick a drink up top, then tap on your name each round. The bar &amp; ranking follow the selected drink; each row shows all three. Hit <b>−</b> to fix a mis-tap.${BEER_API ? '' : '<br>Counts are saved on this device only until the shared backend is connected.'}</div>`;
   setBeerSync();
 }
 
